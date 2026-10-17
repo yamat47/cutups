@@ -1,0 +1,24 @@
+{
+  "name": "cutups",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "check": "astro check && oxlint src scripts && oxfmt --check",
+    "fmt": "oxfmt"
+  },
+  "dependencies": {
+    "astro": "7.4.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@astrojs/compiler-rs": "0.5.2",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  }
+}

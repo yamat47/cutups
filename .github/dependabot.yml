@@ -10,3 +10,13 @@ updates:
       # All action bumps bundled into a single PR.
       github-actions:
         patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # All package bumps bundled into a single PR.
+      npm:
+        patterns: ["*"]
