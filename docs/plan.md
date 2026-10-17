@@ -36,6 +36,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 ### Ingestion
 
 - The author drops a video and a sidecar with the same name (`url`, `author`, the `caption` verbatim, an optional `note`) into `application/inbox/` and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the PR review is the curation step.
+- `make inbox` serves a page on the author's machine (`application/scripts/inbox/`, port 4322) that takes the video and its URL and writes both files, with the author and the caption from the platform's oEmbed; `make lookup URL=` gives the same answer from the shell. This is not the scraping that was set aside: no page is fetched, no cookie is used, and the video is still handed over by the author. The endpoints and their caveats are in `lookup.ts`.
 - The skill (`.claude/skills/ingest-play/SKILL.md`) fixes the procedure in eight steps: make the material, read every existing part, parse the name, choose the parts, read the defense, write the play, validate, open the PR.
 - `application/scripts/extract.sh` does the deterministic preprocessing: 1 fps sheets, the diagram cut into three high-resolution strips, and a transcript when the Whisper model can be fetched. `make extract NAME=<name>` runs it in the container; the `Dockerfile` and `compose.yaml` say what it needs and why.
 - `application/scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, the body headings are present. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
@@ -59,7 +60,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - The content schema is written once, as zod in `src/content/schema.ts`, with `z` imported from `astro/zod` so that it runs outside Astro too. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
 - `astro/zod` is zod 4 (`zod/v4`), so the schema is written in its syntax (`z.strictObject`, `z.url()`, `z.int()`). The validate script parses frontmatter with `yaml`, the package Astro itself depends on, pinned as a direct dependency so that the lock file, not Astro's dependency tree, decides its version. `@types/node` is a direct dependency too, since `astro check` type-checks `scripts/`.
 - The draft's "no transcript" warning was dropped from validate. No play has a transcript for now, so it would have fired on every file and said nothing.
-- Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
+- Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts`, the rules in validate, the oEmbed lookup, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
 - Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler; this is off by default and `.oxfmtrc.json` turns it on with `astro: true`. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
 - oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging. A package whose major is decided by something else is ignored for majors in that file rather than closed by hand each month; the comments there say which and why. Dependabot proposes every newer version whatever the pin in `package.json` says, so the config is the only place for the rule.
 - CI is one workflow, `.github/workflows/ci.yml`, with one job named `check`: `npm ci`, then `npm run check` (astro check, oxlint, oxfmt --check), `npm test`, `npm run validate`, `npm run build`. `check` is the required check in infra-github. Actions are pinned by SHA with the version in a comment, following `github-actions-workflows`.
@@ -78,7 +79,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 
 - v0.1 made concepts the nodes, in a tree with hand-written `parent` / `beats` / `pairs_with`. The actual videos turned out to diagram one play from one game rather than explain a concept, and one play is a composition of several concepts (`GY Counter` plus `Reverse` plus `Throwback`), so it does not fit one place in a tree. `situations` (3rd and medium, and so on) and `status: stub` went with it.
 - Dify was considered and set aside. The real cost is getting the video and caption out of Instagram, and Dify has no node for that. The rest (ffmpeg, the LLM's judgment, git) is custom code either way, so a workflow builder in between does not shorten anything.
-- No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. For now the author hands over the video and the caption.
+- No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. The author hands over the video; the caption comes from oEmbed when the endpoint answers, and from the author otherwise.
 - `vs.front` (4-2-5 and so on) is not a vocabulary. The field exists and accepts null.
 - A React island for walking relations. The relations are derived at build time, so a chip is a link to a static page and the client has nothing to compute. An island is added when an interaction needs one.
 - validate with a schema of its own (the draft's `validate.mjs`), next to the zod schema the site needs. Every new field would have been written twice.
@@ -86,7 +87,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - Tailwind. Four page types and a handful of components do not need a utility framework.
 - Vercel. GitHub Pages needs no account outside GitHub, and infra-github already manages the repository. The PR review is about content, so per-PR previews are not needed.
 - A devcontainer (`.devcontainer/` with `devcontainer.json`) and a `scripts/dcc` wrapper around the devcontainer CLI, as in yamat47/waggle. The directory layout of waggle was taken; the tooling was not, since compose and a Makefile do the same job here without a CLI on the host.
-- A `vitest.config.ts`. The only setting it would carry is the test pattern, and vitest's default already finds `src/**/*.test.ts`.
+- A `vitest.config.ts`. The only setting it would carry is the test pattern, and vitest's default already finds the `*.test.ts` files under `src/` and `scripts/`.
 - Committing the phase-2 `ingest.yml` as a stub. It triggers on an issue label and has nothing to run with, so it would only produce failed runs.
 
 ## What four videos taught
@@ -118,6 +119,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 - Where a transcript lives. `video.transcript` is a field of the model, but extract writes the transcript into the gitignored inbox and nothing carries it into the repository, so the evidence behind a `high` confidence is gone after the PR. Either the skill copies it into the content and the field points at it, or the field goes and the skill quotes the lines into 「守備の読み」.
 - Whether validate derives the slug prefix from `game`. The formula `{season}-{away}-{home}-{title-kebab}` is prose only, and how a team name becomes kebab (`mtsu`, `hou-christian`) is decided by hand each time.
 - The diagram frame is taken at a fixed second (`AT=3` by default). When authors with another layout arrive, extract may need to find the still-to-film cut itself.
+- Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup to come in step 6. One record per platform would make a new platform a row rather than three edits; do it when the embed component arrives.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
@@ -159,7 +161,7 @@ The step is done when `make extract NAME=test` writes `sheet_1.jpg` and `diagram
 
 ### 5. The first plays
 
-The author hands over videos one at a time, each with its sidecar, and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the review is the curation. The four videos under "What four videos taught" come first: their URLs are known, and the parts and `vs` in the table are the expected result. Whatever the review corrects goes back into the skill or the part's 「見分け方」 in the same PR.
+The author hands over videos one at a time through `make inbox`, which writes the video and its sidecar, and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the review is the curation. The four videos under "What four videos taught" come first: their URLs are known, and the parts and `vs` in the table are the expected result. Whatever the review corrects goes back into the skill or the part's 「見分け方」 in the same PR.
 
 The step is ticked when two plays are on `main`, so that the site in step 6 has a shared part to show. Ingestion continues through every later step.
 

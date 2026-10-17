@@ -5,7 +5,7 @@ description: Turn a football play video in application/inbox/ (with its sidecar 
 
 # /ingest-play
 
-Input: `application/inbox/<name>.mp4` and the sidecar `application/inbox/<name>.yaml` described in `application/inbox/README.md`. Ask for the sidecar when it is missing; the caption matters because some authors name the play there.
+Input: `application/inbox/<name>.mp4` and the sidecar `application/inbox/<name>.yaml` described in `application/inbox/README.md`. When the sidecar is missing but the URL is known, `make lookup URL=<url>` gives the author and the caption; ask for the rest. The caption matters because some authors name the play there.
 Output: `application/content/plays/<slug>.md`, plus any new part under `application/content/components/{kind}/`. One play is one branch is one PR. With several videos, finish one before starting the next.
 
 `DATA_MODEL.md` holds the file shapes, the field rules, the confidence rubric and the notes on each author. Read it once per session, before the first play. The rules in `CLAUDE.md` apply throughout.

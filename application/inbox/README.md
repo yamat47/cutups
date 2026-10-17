@@ -1,6 +1,6 @@
 # inbox
 
-Drop a video and its sidecar here, then run `/ingest-play` in a local Claude Code. Everything here except this file is gitignored.
+Drop a video and its sidecar here, then run `/ingest-play` in a local Claude Code. Everything here except this file is gitignored. Or run `make inbox` and let the page on http://localhost:4322 write both files from the video and its URL.
 
 ```
 inbox/
