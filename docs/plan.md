@@ -34,6 +34,14 @@ A catalog of football play examples. The source material is videos on Instagram 
 - Astro's content collections read `content/` as is. Only the part that walks relations becomes a React island.
 - The search box is secondary. The main movement is pivoting: a play page shows its parts and its `vs` as chips, and a chip leads to every play that shares it.
 
+### Skills for Claude Code
+
+- General-purpose skills come from [yamat47/github-toolkit](https://github.com/yamat47/github-toolkit), installed into `.claude/skills/` with `gh skill install yamat47/github-toolkit <name> --agent claude-code --scope project` (gh 2.90.0 or newer). They are unpinned, so `gh skill update --all` moves them to the latest release. The `metadata` block that `gh` writes into each `SKILL.md` records the source; do not edit installed skills by hand, since changes belong in github-toolkit.
+- Installed from v1.10.0: `writing-conventions` (commit, PR and docs style, including the rules for Japanese prose), `create-pr`, `review-pr`, `grill-me` (for the open design questions below), `github-actions-workflows` (for the validate CI and the ingest workflow), `skill-creator` (for refining `ingest-play` as reviews correct it), and `review-skill-update` and `review-dependency-bump` (for the update PRs below).
+- `.github/workflows/update-skills.yml` calls github-toolkit's `update-skills` reusable workflow monthly and opens one PR when a release changes an installed skill. Dependabot (`.github/dependabot.yml`) bumps the workflow's own `@vX.Y.Z` pin. The workflow needs "Allow GitHub Actions to create and approve pull requests", which is requested in infra-github.
+- `ingest-play` is this repository's own skill and lives next to them in `.claude/skills/`.
+- `.claude/settings.json` turns off the commit and PR attribution that Claude Code adds by itself. Commits are authored by yamat47.
+
 ## Tried and dropped
 
 - v0.1 made concepts the nodes, in a tree with hand-written `parent` / `beats` / `pairs_with`. The actual videos turned out to diagram one play from one game rather than explain a concept, and one play is a composition of several concepts (`GY Counter` plus `Reverse` plus `Throwback`), so it does not fit one place in a tree. `situations` (3rd and medium, and so on) and `status: stub` went with it.
@@ -66,6 +74,7 @@ The plays processed so far and the result.
 - Whether `game` becomes a chip, for the day someone wants "that play from that game".
 - Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
 - The GitHub Actions version that turns an issue into a PR (there is a stub in `.github/workflows/ingest.yml`). Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
+- More skills from github-toolkit once there is code for them: `typescript-idioms` and `react-patterns` with the Astro site, `frontend-design` for its look.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
