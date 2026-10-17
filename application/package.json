@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host",
     "build": "astro build",
     "check": "astro check && oxlint src scripts && oxfmt --check",
-    "fmt": "oxfmt"
+    "fmt": "oxfmt",
+    "ci": "npm run check && npm run build"
   },
   "dependencies": {
     "astro": "7.4.0"
