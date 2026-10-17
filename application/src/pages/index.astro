@@ -1,15 +1,18 @@
 ---
-import "../styles/global.css";
+import PlayCard from "../components/PlayCard.astro";
+import Base from "../layouts/Base.astro";
+import { loadCatalog } from "../lib/catalog.ts";
+
+const catalog = await loadCatalog();
 ---
 
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>cutups</title>
-  </head>
-  <body>
-    <h1>cutups</h1>
-  </body>
-</html>
+<Base>
+  <h1>プレー</h1>
+  <p class="muted">
+    試合の 1
+    プレーを、フォーメーション・モーション・スキーム・アクションの組み合わせとして並べています。チップから同じパーツを使うプレーへ移れます。
+  </p>
+  {catalog.plays.map((play) => (
+    <PlayCard play={play} catalog={catalog} />
+  ))}
+</Base>

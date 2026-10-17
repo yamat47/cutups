@@ -1,0 +1,29 @@
+---
+// A heading over a list of plays. An empty list shows `empty` under the heading when
+// it is given, and nothing at all otherwise.
+import type { Catalog, Play } from "../lib/catalog.ts";
+import PlayCard from "./PlayCard.astro";
+
+interface Props {
+  heading: string;
+  plays: Play[];
+  catalog: Catalog;
+  /** The level of the heading; the cards' play names sit one below it. */
+  level: 2 | 3;
+  empty?: string | undefined;
+}
+
+const { heading, plays, catalog, level, empty } = Astro.props;
+const Heading = `h${level}` as const;
+---
+
+{(plays.length > 0 || empty) && (
+  <>
+    <Heading>{heading}</Heading>
+    {plays.length > 0 ? (
+      plays.map((play) => <PlayCard play={play} catalog={catalog} level={level === 2 ? 3 : 4} />)
+    ) : (
+      <p class="muted">{empty}</p>
+    )}
+  </>
+)}
