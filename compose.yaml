@@ -15,7 +15,11 @@ services:
       # The npm download cache would die with the container otherwise, and every
       # `make install` would fetch the whole tree again.
       - npm_cache:/root/.npm
+      # faster-whisper downloads its model on first use (hundreds of MB); the
+      # volume keeps it across containers.
+      - whisper_cache:/root/.cache/huggingface
 
 volumes:
   node_modules:
   npm_cache:
+  whisper_cache:

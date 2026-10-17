@@ -4,12 +4,12 @@ COMPOSE := docker compose
 RUN := $(COMPOSE) run --rm
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev check test validate build fmt ci shell clean
+.PHONY: help install dev check test validate build fmt ci extract shell clean
 
 help: ## List the targets
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "  %-10s %s\n", $$1, $$2 }'
 
-install: ## Build the image and install the dependencies; rerun after a change to package.json
+install: ## Build the image and install the dependencies; rerun after a change to package.json or the Dockerfile
 	$(RUN) --build app npm ci
 
 dev: ## Start the dev server on http://localhost:4321
@@ -32,6 +32,9 @@ fmt: ## npm run fmt
 
 ci: ## npm ci, then the steps of .github/workflows/ci.yml, in one container
 	$(RUN) app sh -c 'npm ci && npm run ci'
+
+extract: ## Cut the frames and the diagram out of inbox/<name>.mp4: make extract NAME=<name> [AT=<diagram second, default 3>]
+	$(RUN) app bash scripts/extract.sh inbox/$(NAME).mp4 $(AT)
 
 shell: ## Open a shell in the container
 	$(RUN) app bash
