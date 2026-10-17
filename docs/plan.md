@@ -124,6 +124,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 - Whether validate derives the slug prefix from `game`. The formula `{season}-{away}-{home}-{title-kebab}` is prose only, and how a team name becomes kebab (`mtsu`, `hou-christian`) is decided by hand each time.
 - The diagram frame is taken at a fixed second (`AT=3` by default). When authors with another layout arrive, extract may need to find the still-to-film cut itself.
 - Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup in `src/components/Embed.astro`. One record per platform would make a new platform a row rather than three edits. Step 6 added the embed and left the three apart to stay within its scope; do it when a third platform is added.
+- `make dev` can refuse to start with "Another astro dev server is already running". Astro 7 writes `application/.astro/dev.json` with the server's PID and treats the server as alive while that PID is; a server stopped without removing it leaves the file in the bind mount, and the next container reuses the same small PIDs, so the dead server looks alive. Deleting the file is the workaround; `astro dev --ignore-lock` in the `dev` script would be the fix, since every `make dev` is a fresh container.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
