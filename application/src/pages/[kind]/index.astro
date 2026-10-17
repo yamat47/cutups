@@ -1,0 +1,55 @@
+---
+import { KINDS, type Kind } from "../../content/schema.ts";
+import Base from "../../layouts/Base.astro";
+import { loadCatalog } from "../../lib/catalog.ts";
+import { partHref } from "../../lib/hrefs.ts";
+import { KIND_LABEL } from "../../lib/labels.ts";
+import { playsWithPart } from "../../lib/relations.ts";
+
+export function getStaticPaths() {
+  return KINDS.map((kind) => ({ params: { kind }, props: { kind } }));
+}
+
+interface Props {
+  kind: Kind;
+}
+
+const { kind } = Astro.props;
+const catalog = await loadCatalog();
+const parts = catalog.parts.filter((part) => part.kind === kind);
+---
+
+<Base title={KIND_LABEL[kind]}>
+  <h1>{KIND_LABEL[kind]}</h1>
+  {parts.length === 0 ? (
+    <p>まだありません。</p>
+  ) : (
+    <ul>
+      {parts.map((part) => (
+        <li>
+          <a href={partHref(part)}>{part.data.title}</a>
+          <span class="muted">
+            {part.data.title_ja}
+            {part.data.variant_of &&
+              ` ・ ${catalog.part({ kind, slug: part.data.variant_of }).data.title} の変種`}
+            {` ・ ${playsWithPart(catalog.plays, part).length} プレー`}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )}
+</Base>
+
+<style>
+  ul {
+    padding-left: 0;
+    list-style: none;
+  }
+  li {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .muted {
+    margin-left: var(--space-2);
+  }
+</style>

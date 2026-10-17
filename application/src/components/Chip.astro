@@ -1,0 +1,35 @@
+---
+// A part as a link to the page of every play that shares it.
+import type { Part } from "../lib/catalog.ts";
+import { partHref } from "../lib/hrefs.ts";
+
+interface Props {
+  part: Part;
+}
+
+const { part } = Astro.props;
+---
+
+<a class="chip" data-kind={part.kind} href={partHref(part)} title={part.data.title_ja}>
+  {part.data.title}
+</a>
+
+<style>
+  .chip {
+    display: inline-block;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-sm);
+    color: var(--color-fg);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .chip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .chip[data-kind="coverage"] {
+    border-style: dashed;
+  }
+</style>

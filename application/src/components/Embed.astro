@@ -1,0 +1,41 @@
+---
+// The platform's official embed, built from the URL alone (DATA_MODEL.md). These
+// two scripts are the only client-side JavaScript on the site. A host the site has
+// no embed for falls back to a plain link; validate warns about such a URL.
+import { platformOf } from "../content/schema.ts";
+
+interface Props {
+  url: string;
+}
+
+const { url } = Astro.props;
+const platform = platformOf(url);
+---
+
+<div class="embed">
+  {platform === "instagram" ? (
+    <>
+      <blockquote class="instagram-media" data-instgrm-permalink={url}>
+        <a href={url}>Instagram で見る</a>
+      </blockquote>
+      <script is:inline async src="https://www.instagram.com/embed.js" />
+    </>
+  ) : platform === "x" ? (
+    <>
+      <blockquote class="twitter-tweet">
+        <a href={url}>X で見る</a>
+      </blockquote>
+      <script is:inline async src="https://platform.twitter.com/widgets.js" charset="utf-8" />
+    </>
+  ) : (
+    <p>
+      <a href={url}>動画を見る</a>
+    </p>
+  )}
+</div>
+
+<style>
+  .embed {
+    margin: var(--space-3) 0;
+  }
+</style>
