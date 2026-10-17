@@ -7,7 +7,9 @@
     "build": "astro build",
     "check": "astro check && oxlint src scripts && oxfmt --check",
     "fmt": "oxfmt",
-    "ci": "npm run check && npm run build"
+    "test": "vitest run",
+    "validate": "node scripts/validate.ts",
+    "ci": "npm run check && npm test && npm run validate && npm run build"
   },
   "dependencies": {
     "astro": "7.4.0"
@@ -15,9 +17,12 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@astrojs/compiler-rs": "0.5.2",
+    "@types/node": "22.20.5",
     "oxfmt": "0.73.0",
     "oxlint": "1.88.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.5",
+    "yaml": "2.9.1"
   },
   "engines": {
     "node": ">=22.22.0"

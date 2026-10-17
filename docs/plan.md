@@ -31,6 +31,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - A play's slug is `{season}-{away}-{home}-{title-kebab}`.
 - Video files never enter the repository. Only the URL is stored, and the site shows the platform's official embed (Instagram: `<blockquote class="instagram-media" data-instgrm-permalink="URL">` plus embed.js; X: `<blockquote class="twitter-tweet"><a href="URL"></a></blockquote>` plus widgets.js). Both work from the URL alone, so no oEmbed API and no token are needed.
 - Play and component bodies are Japanese, for the readers. Everything else in the repository (docs, code, commit messages) is English.
+- A play may have more than one part of a kind, so a value under `components` is a slug or a list of slugs (`action: [play-action, bluff]`), and the schema turns both into a list. The rest of the model is in `DATA_MODEL.md`.
 
 ### Ingestion
 
@@ -56,6 +57,8 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - Astro 7, which runs on Vite 8 and Rolldown and needs Node 22.22.0 or newer. `.node-version` pins 22.22.0, `engines` in `package.json` says the same, and CI reads the file.
 - TypeScript everywhere, `scripts/` included. Node 22 runs `.ts` files with type stripping, so the scripts have no build step. Type stripping wants the `.ts` extension on relative imports and accepts no enums or parameter properties. `tsconfig.json` extends `astro/tsconfigs/strict`.
 - The content schema is written once, as zod in `src/content/schema.ts`, with `z` imported from `astro/zod` so that it runs outside Astro too. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
+- `astro/zod` is zod 4 (`zod/v4`), so the schema is written in its syntax (`z.strictObject`, `z.url()`, `z.int()`). The validate script parses frontmatter with `yaml`, the package Astro itself depends on, pinned as a direct dependency so that the lock file, not Astro's dependency tree, decides its version. `@types/node` is a direct dependency too, since `astro check` type-checks `scripts/`.
+- The draft's "no transcript" warning was dropped from validate. No play has a transcript for now, so it would have fired on every file and said nothing.
 - Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
 - Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler; this is off by default and `.oxfmtrc.json` turns it on with `astro: true`. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
 - oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging.
@@ -83,6 +86,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - Tailwind. Four page types and a handful of components do not need a utility framework.
 - Vercel. GitHub Pages needs no account outside GitHub, and infra-github already manages the repository. The PR review is about content, so per-PR previews are not needed.
 - A devcontainer (`.devcontainer/` with `devcontainer.json`) and a `scripts/dcc` wrapper around the devcontainer CLI, as in yamat47/waggle. The directory layout of waggle was taken; the tooling was not, since compose and a Makefile do the same job here without a CLI on the host.
+- A `vitest.config.ts`. The only setting it would carry is the test pattern, and vitest's default already finds `src/**/*.test.ts`.
 - Committing the phase-2 `ingest.yml` as a stub. It triggers on an issue label and has nothing to run with, so it would only produce failed runs.
 
 ## What four videos taught
@@ -110,6 +114,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 - Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
 - The GitHub Actions version that turns an issue into a PR. The stub is kept in the draft below and not committed. Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
 - More skills from github-toolkit once there is code for them: `typescript-idioms` with the first code PR, `frontend-design` for the look. Not `react-patterns`, since there is no React.
+- Whether `kind` stays in a part's frontmatter. The directory already says it, validate checks that the two agree, and the collection id is `{kind}/{slug}`, so the field may be redundant. Decide when the first parts are written.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
@@ -117,7 +122,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 The order is a guess and will change. Each step is one PR that is green on its own, and the PR that completes a step ticks its box. A fresh session takes the first unticked step and nothing else.
 
 - [x] 1. Toolchain
-- [ ] 2. Schema, validate and tests
+- [x] 2. Schema, validate and tests
 - [ ] 3. infra-github: default branch and required check
 - [ ] 4. Ingestion: the skill and extract.sh
 - [ ] 5. The first plays
@@ -133,7 +138,7 @@ The step is done when the PR's `check` job is green and `npm run build` writes `
 
 ### 2. Schema, validate and tests
 
-The PR adds `src/content/schema.ts` (the zod schemas for a play and a part, with the fields from `DATA_MODEL.md`), `src/content.config.ts` (collections `plays` and `components` over `content/plays` and `content/components` through the glob loader), `src/lib/validate.ts` (the cross-file rules as pure functions over parsed objects), `scripts/validate.ts` (reads the files, runs the schema and the rules, prints warnings in yellow and errors in red, exits 1 on an error, and ends with the line `N plays, M components: E errors, W warnings`), `src/lib/validate.test.ts`, `vitest.config.ts`, the `test` (`vitest run`) and `validate` (`node scripts/validate.ts`) scripts, both added to `ci.yml` and to the `ci` script, a `.gitkeep` in `content/plays/` and in each `content/components/{kind}/`, and `DATA_MODEL.md` at the root, rewritten from the draft with the paths of this plan. `CLAUDE.md` gets its entry points (`npm run validate`, `npm run check`).
+The PR adds `src/content/schema.ts` (the zod schemas for a play and a part, with the fields from `DATA_MODEL.md`), `src/content.config.ts` (collections `plays` and `components` over `content/plays` and `content/components` through the glob loader), `src/lib/validate.ts` (the cross-file rules as pure functions over parsed objects), `scripts/validate.ts` (reads the files, runs the schema and the rules, prints warnings in yellow and errors in red, exits 1 on an error, and ends with the line `N plays, M components: E errors, W warnings`), `src/lib/validate.test.ts`, the `test` (`vitest run`) and `validate` (`node scripts/validate.ts`) scripts, both added to `ci.yml` and to the `ci` script, a `.gitkeep` in `content/plays/` and in each `content/components/{kind}/`, and `DATA_MODEL.md` at the root, rewritten from the draft with the paths of this plan. `CLAUDE.md` gets its entry points (`npm run validate`, `npm run check`).
 
 The rules to test, each with a fixture: a referenced part that does not exist is an error, `variant_of` pointing outside its kind is an error, a missing body heading is an error, an empty `components` is an error, `confidence: low` is a warning, a `builds_on` that does not exist yet is a warning, `game.away: unknown` is a warning, a `video.url` outside instagram.com, x.com and twitter.com is a warning.
 
@@ -179,198 +184,7 @@ Not one PR. Five to ten more videos to grow the part vocabulary and the coverage
 
 ## The draft (playbook-v0.4.zip)
 
-The reference the code is rewritten from. The zip is gone, so these copies are all that is left of it. `CLAUDE.md`, `DATA_MODEL.md`, the skill and the scripts are rewritten under the Code rules above, and the copies show what the draft did. The play and part files show the shape a new play or part takes; they are not restored as content. When a PR makes one of these files real, it deletes the copy here.
-
-<details>
-<summary>CLAUDE.md</summary>
-
-````markdown
-# cutups: a catalog of football play examples
-
-The repository is the database. One video is one play example in `content/plays/*.md`. Concepts live in `content/components/` as parts, and a play is a composition of parts. The full model is in `DATA_MODEL.md`.
-
-## Entry points
-- Ingest a new video: `/ingest-play` (`.claude/skills/ingest-play/SKILL.md`)
-- Check the content: `node scripts/validate.mjs` (always before a PR)
-
-## Rules
-- `vs` is required. A guess is fine, but it always comes with `confidence` and `evidence`.
-- When a part is missing, add `content/components/{kind}/{slug}.md` in the same PR. Read every existing part before adding one.
-- Never write relations (derivatives, series, counters) by hand. They are derived from shared parts at build time.
-- Never commit video files (`inbox/` is gitignored).
-- Mark every inference, in a frontmatter comment or in the PR body. Do not state a guess as fact.
-- Play and component bodies are written in Japanese for the readers. Titles and part names use the English that the author or coaches use; the Japanese goes in `title_ja`. Everything else in the repository (docs, code, commits) is English.
-````
-
-</details>
-
-<details>
-<summary>DATA_MODEL.md</summary>
-
-````markdown
-# Data model v0.2.1
-
-Changes from v0.1: the node is a play example, not a concept. Concepts are parts attached to examples, and relations are derived at build time from the parts that plays share. `vs` (the defense the opponent showed) is required.
-
-## Principles
-
-1. One video is one play example is one file. That is the only kind of node.
-2. A play is a composition of parts: formation, motion, run scheme, pass concept, action. The author's title (for example *Y-Short Bunch Trail*) is parsed into parts.
-3. `vs` is required. It records the defense the opponent actually showed on this play, not what the play is meant to beat. A guess is allowed, with evidence.
-4. Relations are never written by hand. They are derived from shared parts. The one exception is `builds_on`.
-5. The vocabulary grows from examples. When a part is missing, the part file is added in the same PR.
-6. Video files never enter the repository. Only the URL is stored, and the site shows the official embed.
-
-## Directory layout
-
-```
-content/
-  plays/
-    2026-bills-rams-y-short-bunch-trail.md
-    2026-delaware-mtsu-gy-counter-reverse-throwback.md
-  components/
-    formation/  bunch.md
-    motion/     y-short.md
-    run/        gy-counter.md
-    pass/       trail.md
-    action/     reverse.md  throwback.md
-    coverage/   cover-1.md
-scripts/
-  validate.mjs
-```
-
-A play's slug is `{season}-{away}-{home}-{title-kebab}`. The same play name in the same game is unlikely to repeat.
-
-## A play example
-
-```yaml
----
-title: Y-Short Bunch Trail          # the author's name for it, verbatim (canonical)
-title_ja: Yショート・バンチ・トレイル
-phase: offense                      # offense | defense | kick
-
-game:
-  season: 2026
-  away: Bills
-  home: Rams
-  level: nfl                        # nfl | ncaa | other
-  offense: Bills                    # the team on offense
-
-components:                         # each value must exist as components/{kind}/{slug}.md
-  formation: bunch
-  motion: y-short
-  pass: trail
-  # omit run / action when the play has none
-
-vs:                                 # required
-  coverage: cover-1                 # a slug under components/coverage/
-  confidence: medium                # high | medium | low
-  evidence: The nickel follows Y's short motion. One safety deep in the middle.
-  front: null                       # optional, e.g. 4-2-5. Not a vocabulary yet.
-
-builds_on: null                     # optional. Only when the author says this play was designed against that play.
-
-video:
-  url: https://www.instagram.com/reel/DecbK2ZAxuD/
-  author: playdesignerpro
-  kind: diagram+film                # diagram+film | film | diagram | talk
-  caption: null                     # the caption verbatim, for authors who name the play there
-  transcript: null                  # relative path to transcripts/{slug}.txt when one exists
----
-
-## このプレーの何が面白いか
-(The editor's voice. Written for every play.)
-
-## 展開
-(Who moves where. Bullets.)
-
-## 守備の読み
-(The long form of `vs.evidence`: what in the footage led to the call.)
-```
-
-The body headings are Japanese because the body is for Japanese readers. Their names are fixed; `validate.mjs` checks them.
-
-### Required and optional
-
-| Field | Required | Notes |
-| --- | --- | --- |
-| title, title_ja, phase, game | yes | |
-| components | yes | at least one; every value must have a part file (checked in CI) |
-| vs.coverage, vs.confidence, vs.evidence | yes | `low` is fine; empty is not |
-| vs.front, builds_on | no | |
-| video.url, video.author, video.kind | yes | |
-| three body headings | yes | 「守備の読み」 is the long form of `vs.evidence` |
-
-## A part
-
-```yaml
----
-kind: pass                          # formation | motion | run | pass | action | coverage
-title: Trail
-title_ja: トレイル
-aliases: [Return, Whip, リターン]
-variant_of: null                    # optional. The parent slug in the same kind (gy-counter -> counter)
----
-
-## 何か
-(The definition, written once. Three to five lines.)
-
-## 見分け方
-(What in the footage identifies it. Matters most for coverage.)
-```
-
-A part's body is short: the definition and how to recognize it. Per-play commentary belongs in the play.
-
-### Coverage parts are special
-
-Because `vs` is required, reading the defense has to get cheaper. The 「見分け方」 section of a coverage part doubles as the checklist Claude runs against the frames. For example:
-
-- cover-1: one safety deep in the middle, corners squared up on receivers, a defender follows motion
-- cover-3: one safety deep in the middle, corners backpedal deep and outside, nobody follows motion
-- cover-2: two safeties deep on the hashes, corners jam and stay shallow
-
-## Derived at build time
-
-| Derived view | Rule |
-| --- | --- |
-| part page | every play that has the part |
-| same picture, different play (a series) | same formation and motion, different run / pass / action |
-| same scheme | same run or same pass; parts sharing a `variant_of` parent are listed as one family |
-| plays used against this defense | grouped by vs.coverage |
-| counters | the reverse of builds_on |
-| search index | title / title_ja / aliases (parts included) / game |
-
-## How the site is navigated
-
-A play page shows its parts and its `vs` as chips. A chip leads to the list of plays that share it. The search box is secondary; the main movement is pivoting through chips.
-
-## Where authors put the play name
-
-| Author | Where | Grammar |
-| --- | --- | --- |
-| playdesignerpro | overlay inside the video | `game` + `Motion Formation Concept` |
-| offensive_guru | the caption (truncated on screen) | `Team Formation ➡️ Concept` |
-
-For authors who name the play in the caption, expand the caption before recording, or paste the caption text next to the link. When the caption was cut off, mark the inferred part of `title` in a comment.
-
-## How Claude opens a PR
-
-1. Cut frames and transcribe.
-2. Parse the title into candidate parts. Read all of `components/` and match against existing parts, aliases included.
-3. Create part files for anything missing (definition and how to recognize it).
-4. Read the defense from the frames against the coverage parts' 「見分け方」 and write the evidence. When unsure, `confidence: low`.
-5. Write the play file.
-6. Run validate.
-7. In the PR body: the title-to-parts table, the `vs` evidence and confidence, the reason for each new part.
-
-## Dropped since v0.1
-
-- `parent` / `beats` / `pairs_with`: replaced by derivation.
-- `situations`: removed for now. `vs` and parts cover it. Can come back later.
-- `status: stub`: a part may exist with zero plays, so stubs are not needed.
-````
-
-</details>
+The reference the code is rewritten from. The zip is gone, so these copies are all that is left of it. The skill and the scripts are rewritten under the Code rules above, and the copies show what the draft did. The play and part files show the shape a new play or part takes; they are not restored as content. When a PR makes one of these files real, it deletes the copy here.
 
 <details>
 <summary>.claude/skills/ingest-play/SKILL.md</summary>
@@ -463,102 +277,6 @@ else
   echo "faster-whisper is not installed; skipping the transcript (pip install faster-whisper)"
 fi
 echo "done: $out"
-````
-
-</details>
-
-<details>
-<summary>scripts/validate.mjs</summary>
-
-````javascript
-// node scripts/validate.mjs: checks content/ for consistency. Red is an error (exit 1), yellow a warning.
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
-import YAML from "yaml";
-
-const KINDS = ["formation", "motion", "run", "pass", "action", "coverage"];
-const errors = [], warns = [];
-const err = (f, m) => errors.push(`${f}: ${m}`);
-const warn = (f, m) => warns.push(`${f}: ${m}`);
-
-function walk(dir) {
-  return readdirSync(dir).flatMap(n => {
-    const p = join(dir, n);
-    return statSync(p).isDirectory() ? walk(p) : p.endsWith(".md") ? [p] : [];
-  });
-}
-function frontmatter(path) {
-  const s = readFileSync(path, "utf8");
-  const m = s.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!m) { err(path, "missing frontmatter"); return [null, ""]; }
-  try { return [YAML.parse(m[1]), m[2]]; } catch (e) { err(path, `YAML: ${e.message}`); return [null, ""]; }
-}
-const headings = body => [...body.matchAll(/^## (.+)$/gm)].map(m => m[1].trim());
-
-// --- parts ---
-const components = {}; // kind -> Set(slug)
-for (const k of KINDS) components[k] = new Set();
-for (const p of walk("content/components")) {
-  const [fm, body] = frontmatter(p); if (!fm) continue;
-  const kind = p.split("/")[2], slug = basename(p, ".md");
-  if (!KINDS.includes(kind)) err(p, `unknown kind directory ${kind}`);
-  if (fm.kind !== kind) err(p, `kind: ${fm.kind} does not match the directory ${kind}`);
-  for (const k of ["title", "title_ja"]) if (!fm[k]) err(p, `missing ${k}`);
-  const h = headings(body);
-  for (const need of ["何か", "見分け方"]) if (!h.includes(need)) err(p, `missing heading "${need}"`);
-  components[kind].add(slug);
-}
-// variant_of is checked after every part is known
-for (const p of walk("content/components")) {
-  const [fm] = frontmatter(p); if (!fm?.variant_of) continue;
-  const kind = p.split("/")[2];
-  if (!components[kind].has(fm.variant_of)) err(p, `variant_of: ${fm.variant_of} does not exist under ${kind}`);
-}
-
-// --- plays ---
-const slugs = new Set();
-for (const p of walk("content/plays")) {
-  const [fm, body] = frontmatter(p); if (!fm) continue;
-  const slug = basename(p, ".md");
-  if (slugs.has(slug)) err(p, "duplicate slug"); slugs.add(slug);
-
-  for (const k of ["title", "title_ja", "phase", "game", "components", "vs", "video"]) if (fm[k] == null) err(p, `missing ${k}`);
-  if (!["offense", "defense", "kick"].includes(fm.phase)) err(p, `phase: ${fm.phase}`);
-  for (const k of ["season", "away", "home", "level", "offense"]) if (fm.game?.[k] == null) err(p, `missing game.${k}`);
-  if (fm.game?.away === "unknown" || fm.game?.home === "unknown") warn(p, "game has an unknown team");
-
-  // components
-  const comps = fm.components ?? {};
-  if (Object.values(comps).filter(v => v != null).length === 0) err(p, "components is empty");
-  for (const [kind, v] of Object.entries(comps)) {
-    if (v == null) continue;
-    if (!KINDS.includes(kind) || kind === "coverage") { err(p, `components.${kind} is not a valid key`); continue; }
-    for (const s of Array.isArray(v) ? v : [v]) if (!components[kind].has(s)) err(p, `components.${kind}: ${s} does not exist under content/components/${kind}/`);
-  }
-
-  // vs
-  const vs = fm.vs ?? {};
-  if (!vs.coverage) err(p, "vs.coverage is empty (required)");
-  else if (!components.coverage.has(vs.coverage)) err(p, `vs.coverage: ${vs.coverage} does not exist`);
-  if (!["high", "medium", "low"].includes(vs.confidence)) err(p, `vs.confidence: ${vs.confidence}`);
-  if (!vs.evidence || String(vs.evidence).trim().length < 10) err(p, "vs.evidence is missing or too short");
-  if (vs.confidence === "low") warn(p, "vs.confidence is low");
-
-  if (fm.builds_on && !slugs.has(fm.builds_on)) warn(p, `builds_on: ${fm.builds_on} does not exist (yet)`);
-
-  // video
-  for (const k of ["url", "author", "kind"]) if (!fm.video?.[k]) err(p, `missing video.${k}`);
-  if (fm.video?.url && !/^https:\/\/(www\.instagram\.com|x\.com|twitter\.com)\//.test(fm.video.url)) warn(p, `unexpected domain in video.url: ${fm.video.url}`);
-  if (!fm.video?.transcript) warn(p, "no transcript");
-
-  const h = headings(body);
-  for (const need of ["このプレーの何が面白いか", "展開", "守備の読み"]) if (!h.includes(need)) err(p, `missing heading "${need}"`);
-}
-
-for (const w of warns) console.log(`\x1b[33mwarn\x1b[0m ${w}`);
-for (const e of errors) console.log(`\x1b[31merror\x1b[0m ${e}`);
-console.log(`\n${slugs.size} plays, ${Object.values(components).reduce((a, s) => a + s.size, 0)} components: ${errors.length} errors, ${warns.length} warnings`);
-process.exit(errors.length ? 1 : 0);
 ````
 
 </details>

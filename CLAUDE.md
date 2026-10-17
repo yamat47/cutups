@@ -2,7 +2,13 @@
 
 The repository is the database. One video is one play example in `content/plays/*.md`. Concepts live in `content/components/` as parts, and a play is a composition of parts.
 
-`docs/plan.md` is the working log and the hand-over between sessions. Read it first, in full. "How a session starts" says how to pick up the work, and the first unticked step under "Next" is the work. Until `DATA_MODEL.md` exists at the root, the model is the copy in the draft at the end of the plan.
+`docs/plan.md` is the working log and the hand-over between sessions. Read it first, in full. "How a session starts" says how to pick up the work, and the first unticked step under "Next" is the work. The model is in `DATA_MODEL.md`.
+
+## Entry points
+
+- Check the content: `make validate` (always before a PR)
+- Check the code: `make check`, `make test`
+- Everything CI runs: `make ci`
 
 ## Rules
 
