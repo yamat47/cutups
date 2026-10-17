@@ -6,6 +6,7 @@ The repository is the database. One video is one play example in `content/plays/
 
 ## Entry points
 
+- Ingest a video: `/ingest-play` (`.claude/skills/ingest-play/SKILL.md`), in a local Claude Code
 - Check the content: `make validate` (always before a PR)
 - Check the code: `make check`, `make test`
 - Everything CI runs: `make ci`
