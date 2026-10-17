@@ -26,18 +26,35 @@ A catalog of football play examples. The source material is videos on Instagram 
 - The author drops a video and a sidecar with the same name (`url`, `author`, the `caption` verbatim, an optional `note`) into `inbox/` and runs `/ingest-play` in Claude Code. One play is one branch is one PR, and the PR review is the curation step.
 - The skill (`.claude/skills/ingest-play/SKILL.md`) fixes the procedure in eight steps: make the material, read every existing part, parse the name, choose the parts, read the defense, write the play, validate, open the PR.
 - `scripts/extract.sh` does the deterministic preprocessing: 1 fps tiles, the diagram cut into three high-resolution strips, audio, and a transcript when faster-whisper is available.
-- `scripts/validate.mjs` checks that every referenced part exists, that `vs` has all three fields, that the body headings are present, and so on. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
-- The PR body carries the title-to-parts table, the `vs` evidence and confidence, the reason for each new part, and open questions. Inferences are marked as such.
+- `scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, the body headings are present. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
+- The PR body follows `.claude/skills/ingest-play/pr-template.md` and carries the title-to-parts table, the `vs` evidence and confidence, the reason for each new part, and open questions. Inferences are marked as such. The template lives with the skill because a template under `.github/` would apply to every PR, the skill updates and the Dependabot bumps included.
 
 ### Site
 
-- Astro's content collections read `content/` as is. Only the part that walks relations becomes a React island.
+- Astro's content collections read `content/` as is, through the glob loader with `content/plays` and `content/components` as its base. Every page is generated at build time.
+- There is no client-side JavaScript except the embed scripts of Instagram and X. The relations are derived at build time, so a chip is a plain link. A component becomes an island only when an interaction needs one, and none does yet.
+- URLs: `/` is the play list, `/plays/{slug}/` a play, `/{kind}/{slug}/` a part with every play that has it, and `/{kind}/` the parts of one kind. `/coverage/cover-1/` is the list of plays used against Cover 1, the same page shape as any other part.
 - The search box is secondary. The main movement is pivoting: a play page shows its parts and its `vs` as chips, and a chip leads to every play that shares it.
+- Styling is Astro's scoped `<style>` in each component, plus one `src/styles/global.css` with the custom properties for color, spacing and type. No CSS framework. The look is refined later with the `frontend-design` skill, and those are the two places it touches.
+- The site is published on GitHub Pages at `cutups.yamat47.me`. `.github/workflows/deploy.yml` builds on every push to `main` and deploys with `actions/deploy-pages`. The `pages` block and the cname go into the `cutups` entry in infra-github.
+
+### Code
+
+- The draft (playbook-v0.4.zip, in the details at the end) is reference material. The code is written fresh under the rules below, and only the content files are moved from the zip as they are.
+- One package at the repository root: `content/` and `scripts/` at the root, the Astro site in `src/`, one `package.json`.
+- Astro 7, which runs on Vite 8 and Rolldown and needs Node 22.22.0 or newer. `.node-version` pins 22.22.0, `engines` in `package.json` says the same, and CI reads the file.
+- TypeScript everywhere, `scripts/` included. Node 22 runs `.ts` files with type stripping, so the scripts have no build step. `tsconfig.json` extends `astro/tsconfigs/strict`.
+- The content schema is written once, as zod in `src/content/schema.ts`. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
+- Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
+- Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
+- oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging.
+- CI is one workflow, `.github/workflows/ci.yml`, with one job named `check`: `npm ci`, then `npm run check` (astro check, oxlint, oxfmt --check), `npm test`, `npm run validate`, `npm run build`. `check` is the required check in infra-github. Actions are pinned by SHA with the version in a comment, following `github-actions-workflows`.
+- The phase-2 `ingest.yml` stub is not committed. It would fire on the issue label and fail, since nothing hands it the video or an API key. It stays in the draft below as a memo.
 
 ### Skills for Claude Code
 
 - General-purpose skills come from [yamat47/github-toolkit](https://github.com/yamat47/github-toolkit), installed into `.claude/skills/` with `gh skill install yamat47/github-toolkit <name> --agent claude-code --scope project` (gh 2.90.0 or newer). They are unpinned, so `gh skill update --all` moves them to the latest release. The `metadata` block that `gh` writes into each `SKILL.md` records the source; do not edit installed skills by hand, since changes belong in github-toolkit.
-- Installed from v1.10.0: `writing-conventions` (commit, PR and docs style, including the rules for Japanese prose), `create-pr`, `review-pr`, `grill-me` (for the open design questions below), `github-actions-workflows` (for the validate CI and the ingest workflow), `skill-creator` (for refining `ingest-play` as reviews correct it), and `review-skill-update` and `review-dependency-bump` (for the update PRs below).
+- Installed from v1.10.0: `writing-conventions` (commit, PR and docs style, including the rules for Japanese prose), `create-pr`, `review-pr`, `grill-me` (used for the Code section above, and for the open questions below), `github-actions-workflows` (for `ci.yml` and `deploy.yml`), `skill-creator` (for refining `ingest-play` as reviews correct it), and `review-skill-update` and `review-dependency-bump` (for the update PRs below).
 - `.github/workflows/update-skills.yml` calls github-toolkit's `update-skills` reusable workflow monthly and opens one PR when a release changes an installed skill. Dependabot (`.github/dependabot.yml`) bumps the workflow's own `@vX.Y.Z` pin. The workflow needs "Allow GitHub Actions to create and approve pull requests", which is requested in infra-github.
 - `ingest-play` is this repository's own skill and lives next to them in `.claude/skills/`.
 - `.claude/settings.json` turns off the commit and PR attribution that Claude Code adds by itself. Commits are authored by yamat47.
@@ -48,6 +65,12 @@ A catalog of football play examples. The source material is videos on Instagram 
 - Dify was considered and set aside. The real cost is getting the video and caption out of Instagram, and Dify has no node for that. The rest (ffmpeg, the LLM's judgment, git) is custom code either way, so a workflow builder in between does not shorten anything.
 - No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. For now the author hands over the video and the caption.
 - `vs.front` (4-2-5 and so on) is not a vocabulary. The field exists and accepts null.
+- A React island for walking relations. The relations are derived at build time, so a chip is a link to a static page and the client has nothing to compute. An island is added when an interaction needs one.
+- validate with a schema of its own (the draft's `validate.mjs`), next to the zod schema the site needs. Every new field would have been written twice.
+- Biome, and Prettier with ESLint, for lint and format. Biome's `.astro` formatting is experimental and it has no Astro lint rules. Prettier plus ESLint with the Astro plugins covers the most of `.astro`, but is the slowest and needs the most configuration, and oxfmt formats `.astro` through the same `prettier-plugin-astro`, so the output is the same. Vite+ (`vp`) bundles the same oxlint, oxfmt and vitest behind one CLI and one config file, but Astro keeps its own dev and build commands, so `vp` would only wrap three scripts. `vp migrate` can bring it in later.
+- Tailwind. Four page types and a handful of components do not need a utility framework.
+- Vercel. GitHub Pages needs no account outside GitHub, and infra-github already manages the repository. The PR review is about content, so per-PR previews are not needed.
+- Committing the phase-2 `ingest.yml` as a stub. It triggers on an issue label and has nothing to run with, so it would only produce failed runs.
 
 ## What four videos taught
 
@@ -69,24 +92,24 @@ The plays processed so far and the result.
 
 ## Still open
 
-- Hosting. GitHub Pages (with `cutups.yamat47.me` as the cname) or Vercel. Once decided, add `pages` to the `cutups` entry in infra-github.
-- Search that starts from the defense ("bunch plays against Cover 1"). How to present it.
+- Search that starts from the defense ("bunch plays against Cover 1"). How to present it. For a static site the candidate is Pagefind at build time; decide when the chips stop being enough.
 - Whether `game` becomes a chip, for the day someone wants "that play from that game".
 - Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
-- The GitHub Actions version that turns an issue into a PR (there is a stub in `.github/workflows/ingest.yml`). Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
-- More skills from github-toolkit once there is code for them: `typescript-idioms` and `react-patterns` with the Astro site, `frontend-design` for its look.
+- The GitHub Actions version that turns an issue into a PR. The stub is kept in the draft below and not committed. Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
+- More skills from github-toolkit once there is code for them: `typescript-idioms` with the first code PR, `frontend-design` for the look. Not `react-patterns`, since there is no React.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
 
-The order is a guess and will change.
+The order is a guess and will change. Each item is one PR that is green on its own.
 
-1. Commit the draft (playbook-v0.4.zip, contents in the details below) as the first content commit: `CLAUDE.md`, `DATA_MODEL.md`, `content/`, `scripts/`, `.claude/skills/ingest-play/`, `inbox/README.md`, `package.json`. Run `npm install` and check that `node scripts/validate.mjs` ends with `4 plays, 16 components: 0 errors, 7 warnings`.
-2. Remove `manage_default_branch = false` from the `cutups` entry in infra-github.
-3. Add a workflow that runs validate in CI, and put its job name into `required_checks` in infra-github.
-4. Build the site skeleton in Astro: the play list, a play page (embed, part chips, vs), a part page (every play with that part). Relations are derived at build time.
-5. Add five to ten more videos to grow the part vocabulary and the coverage recognition cues. Whatever gets corrected in review goes back into the skill.
-6. Decide on hosting and publish.
+1. The skeleton: `package.json` with pinned versions, `.node-version`, the minimal Astro 7 configuration, `src/content/schema.ts` and `src/content.config.ts`, `scripts/validate.ts`, vitest, oxlint and oxfmt, `ci.yml`, `CLAUDE.md`, `DATA_MODEL.md`, `.gitignore`, `inbox/README.md`, and the `npm` entry in `dependabot.yml`. With `content/` empty, validate ends with `0 plays, 0 components: 0 errors, 0 warnings`.
+2. In infra-github: remove `manage_default_branch = false` from the `cutups` entry and put `check` into `required_checks`.
+3. The content: `content/` from playbook-v0.4.zip as it is. The author hands the zip to the Claude Code session or commits the files locally. validate must end with `4 plays, 16 components: 0 errors, 7 warnings`, the same count as the draft.
+4. The ingestion: `.claude/skills/ingest-play/` with its PR template, and `scripts/extract.sh`.
+5. The site: the play list, a play page (embed, part chips, vs), a part page, a kind page, with `src/lib/relations.ts` and its tests.
+6. Publishing: `deploy.yml`, and `pages` with the cname in infra-github.
+7. Five to ten more videos to grow the part vocabulary and the coverage recognition cues. Whatever gets corrected in review goes back into the skill.
 
 ## How the work goes
 
@@ -96,7 +119,7 @@ The order is a guess and will change.
 
 ## The draft (playbook-v0.4.zip)
 
-The files the first content commit is made from. When the zip is not at hand, restore them from here.
+The reference the code is rewritten from. The content files are moved from the zip as they are. `CLAUDE.md`, `DATA_MODEL.md`, the skill and the scripts are rewritten under the Code rules above, and the copies here show what the draft did. When the zip is not at hand, the content can be restored from here and from the table under "What four videos taught".
 
 <details>
 <summary>CLAUDE.md</summary>
@@ -552,7 +575,7 @@ node_modules/
 </details>
 
 <details>
-<summary>.github/workflows/ingest.yml (phase 2 stub)</summary>
+<summary>.github/workflows/ingest.yml (phase 2 stub, not committed)</summary>
 
 ````yaml
 # Phase 2. Label an issue `ingest` with the video URL and sidecar in its body, and Claude Code opens the PR.
