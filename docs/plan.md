@@ -51,7 +51,8 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - Styling is Astro's scoped `<style>` in each component, plus one `src/styles/global.css` with the custom properties for color, spacing and type. No CSS framework. The look is refined later with the `frontend-design` skill, and those are the two places it touches.
 - The relations are pure functions in `src/lib/relations.ts` over plain play and part entries, so vitest runs them without Astro; `src/lib/catalog.ts` loads the collections into those entries for the pages. "Same picture" needs at least a formation or a motion: two plays that name neither share nothing, not an empty picture. "Same scheme" groups by the top of the `variant_of` chain, so GY Counter and Counter Solid meet under Counter, and a part page lists the plays of every part below it in the chain, each variant under its own heading. Actions do not make a scheme.
 - A chip shows the part's English `title`, the name coaches use, with `title_ja` as its tooltip. The page chrome (navigation, headings, kind names) is Japanese, and an unknown team shows as 「不明」. `confidence: low` shows as 「確度 低（推測）」 next to the coverage chip, so the reader sees that the call is a guess.
-- The site is published on GitHub Pages at `cutups.yamat47.me`. `.github/workflows/deploy.yml` builds on every push to `main` and deploys with `actions/deploy-pages`. The `pages` block and the cname go into the `cutups` entry in infra-github.
+- The site is published on GitHub Pages at `cutups.yamat47.me`. `.github/workflows/deploy.yml` builds on every push to `main` and deploys with `actions/deploy-pages`. The `pages` block and the cname go into the `cutups` entry in infra-github, in the form the other sites there use: `pages = { build_type = "workflow", cname = "cutups.yamat47.me" }`.
+- `deploy.yml` pins the upstream actions by SHA, as `ci.yml` does, rather than calling github-toolkit's wrappers at `@main` as 97-things-every-programmer-should-know does; the Dependabot `github-actions` entry already bumps them here. Its build job has no npm cache, since a cache entry is shared across branches and what that job builds is published. It also runs on `workflow_dispatch`, to redeploy without a commit once Pages is turned on; a dispatch from another branch builds and does not publish. The deploy does not wait for `ci.yml`, because `check` is required on `main` in infra-github, so what reaches `main` has passed it.
 
 ### Code
 
@@ -180,7 +181,7 @@ The step is done when `npm run build` writes a page for every play and every par
 
 The PR adds `.github/workflows/deploy.yml`: on push to `main`, build, then `actions/upload-pages-artifact` and `actions/deploy-pages`, with `pages: write` and `id-token: write` on the deploy job and every action pinned by SHA. The author adds `pages` with `cname = "cutups.yamat47.me"` to the `cutups` entry in infra-github and the DNS record.
 
-The step is done when `https://cutups.yamat47.me/` serves the play list.
+The step is done when `https://cutups.yamat47.me/` serves the play list. `deploy.yml` is in; what remains is the author's part in infra-github and DNS, and the step is ticked once the site answers.
 
 ### 8. Growing the catalog
 
