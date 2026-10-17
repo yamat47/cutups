@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        NODE_VERSION: ${NODE_VERSION:?run through make, which reads application/.node-version}
+    ports:
+      - "4321:4321"
+    volumes:
+      - .:/workspace
+      # node_modules is a volume of its own, not part of the bind mount: oxlint and
+      # oxfmt ship platform binaries, and the ones for the container's Linux must
+      # not be mixed with anything installed on the host.
+      - node_modules:/workspace/application/node_modules
+      # The npm download cache would die with the container otherwise, and every
+      # `make install` would fetch the whole tree again.
+      - npm_cache:/root/.npm
+
+volumes:
+  node_modules:
+  npm_cache:

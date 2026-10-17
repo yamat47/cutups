@@ -11,7 +11,7 @@ updates:
       github-actions:
         patterns: ["*"]
   - package-ecosystem: npm
-    directory: /
+    directory: /application
     schedule:
       interval: monthly
     commit-message:

@@ -1,0 +1,34 @@
+# Every target runs inside the development container (compose.yaml), in application/.
+export NODE_VERSION := $(shell cat application/.node-version)
+COMPOSE := docker compose
+RUN := $(COMPOSE) run --rm
+
+.DEFAULT_GOAL := help
+.PHONY: help install dev check build fmt ci shell clean
+
+help: ## List the targets
+	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "  %-10s %s\n", $$1, $$2 }'
+
+install: ## Build the image and install the dependencies; rerun after a change to package.json
+	$(RUN) --build app npm ci
+
+dev: ## Start the dev server on http://localhost:4321
+	$(RUN) --service-ports app npm run dev
+
+check: ## npm run check
+	$(RUN) app npm run check
+
+build: ## npm run build
+	$(RUN) app npm run build
+
+fmt: ## npm run fmt
+	$(RUN) app npm run fmt
+
+ci: ## npm ci, then the steps of .github/workflows/ci.yml, in one container
+	$(RUN) app sh -c 'npm ci && npm run ci'
+
+shell: ## Open a shell in the container
+	$(RUN) app bash
+
+clean: ## Remove the containers and the volumes
+	$(COMPOSE) down --volumes
