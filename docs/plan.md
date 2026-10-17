@@ -49,6 +49,8 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - URLs: `/` is the play list, `/plays/{slug}/` a play, `/{kind}/{slug}/` a part with every play that has it, and `/{kind}/` the parts of one kind. `/coverage/cover-1/` is the list of plays used against Cover 1, the same page shape as any other part.
 - The search box is secondary. The main movement is pivoting: a play page shows its parts and its `vs` as chips, and a chip leads to every play that shares it.
 - Styling is Astro's scoped `<style>` in each component, plus one `src/styles/global.css` with the custom properties for color, spacing and type. No CSS framework. The look is refined later with the `frontend-design` skill, and those are the two places it touches.
+- The relations are pure functions in `src/lib/relations.ts` over plain play and part entries, so vitest runs them without Astro; `src/lib/catalog.ts` loads the collections into those entries for the pages. "Same picture" needs at least a formation or a motion: two plays that name neither share nothing, not an empty picture. "Same scheme" groups by the top of the `variant_of` chain, so GY Counter and Counter Solid meet under Counter, and a part page lists the plays of every part below it in the chain, each variant under its own heading. Actions do not make a scheme.
+- A chip shows the part's English `title`, the name coaches use, with `title_ja` as its tooltip. The page chrome (navigation, headings, kind names) is Japanese, and an unknown team shows as 「不明」. `confidence: low` shows as 「確度 低（推測）」 next to the coverage chip, so the reader sees that the call is a guess.
 - The site is published on GitHub Pages at `cutups.yamat47.me`. `.github/workflows/deploy.yml` builds on every push to `main` and deploys with `actions/deploy-pages`. The `pages` block and the cname go into the `cutups` entry in infra-github.
 
 ### Code
@@ -72,6 +74,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - General-purpose skills come from [yamat47/github-toolkit](https://github.com/yamat47/github-toolkit), installed into `.claude/skills/` with `gh skill install yamat47/github-toolkit <name> --agent claude-code --scope project` (gh 2.90.0 or newer). They are unpinned, so `gh skill update --all` moves them to the latest release. The `metadata` block that `gh` writes into each `SKILL.md` records the source; do not edit installed skills by hand, since changes belong in github-toolkit.
 - Installed from v1.10.0: `writing-conventions` (commit, PR and docs style, including the rules for Japanese prose), `create-pr`, `review-pr`, `grill-me` (used for the Code section above, and for the open questions below), `github-actions-workflows` (for `ci.yml` and `deploy.yml`), `skill-creator` (for refining `ingest-play` as reviews correct it), and `review-skill-update` and `review-dependency-bump` (for the update PRs below).
 - `.github/workflows/update-skills.yml` calls github-toolkit's `update-skills` reusable workflow monthly and opens one PR when a release changes an installed skill. Dependabot (`.github/dependabot.yml`) bumps the workflow's own `@vX.Y.Z` pin. The workflow needs "Allow GitHub Actions to create and approve pull requests", which is requested in infra-github.
+- `typescript-idioms` was installed from v1.10.0 with the site (step 6), the first PR with code outside `scripts/`.
 - `ingest-play` is this repository's own skill and lives next to them in `.claude/skills/`.
 - `.claude/settings.json` turns off the commit and PR attribution that Claude Code adds by itself. Commits are authored by yamat47.
 
@@ -114,12 +117,12 @@ The plays processed with the draft and the result. The files went with the zip; 
 - Whether `game` becomes a chip, for the day someone wants "that play from that game".
 - Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
 - The GitHub Actions version that turns an issue into a PR. The stub is kept in the draft below and not committed. Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
-- More skills from github-toolkit once there is code for them: `typescript-idioms` with the first code PR, `frontend-design` for the look. Not `react-patterns`, since there is no React.
+- More skills from github-toolkit once there is code for them: `frontend-design` for the look. Not `react-patterns`, since there is no React.
 - Whether `kind` stays in a part's frontmatter. The directory already says it, validate checks that the two agree, and the collection id is `{kind}/{slug}`, so the field may be redundant. Decide when the first parts are written.
 - Where a transcript lives. `video.transcript` is a field of the model, but extract writes the transcript into the gitignored inbox and nothing carries it into the repository, so the evidence behind a `high` confidence is gone after the PR. Either the skill copies it into the content and the field points at it, or the field goes and the skill quotes the lines into 「守備の読み」.
 - Whether validate derives the slug prefix from `game`. The formula `{season}-{away}-{home}-{title-kebab}` is prose only, and how a team name becomes kebab (`mtsu`, `hou-christian`) is decided by hand each time.
 - The diagram frame is taken at a fixed second (`AT=3` by default). When authors with another layout arrive, extract may need to find the still-to-film cut itself.
-- Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup to come in step 6. One record per platform would make a new platform a row rather than three edits; do it when the embed component arrives.
+- Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup in `src/components/Embed.astro`. One record per platform would make a new platform a row rather than three edits. Step 6 added the embed and left the three apart to stay within its scope; do it when a third platform is added.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
@@ -131,7 +134,7 @@ The order is a guess and will change. Each step is one PR that is green on its o
 - [x] 3. infra-github: default branch and required check
 - [x] 4. Ingestion: the skill and extract.sh
 - [x] 5. The first plays
-- [ ] 6. The site
+- [x] 6. The site
 - [ ] 7. Publishing
 - [ ] 8. Growing the catalog
 
@@ -168,6 +171,8 @@ The step is ticked when two plays are on `main`, so that the site in step 6 has 
 ### 6. The site
 
 The PR adds `src/lib/relations.ts` (the derived views of `DATA_MODEL.md`: the plays of a part, same picture, same scheme with `variant_of` families as one, plays against a coverage, the reverse of `builds_on`), `src/lib/relations.test.ts`, `src/layouts/Base.astro`, `src/components/Chip.astro`, `PlayCard.astro` and `Embed.astro` (the Instagram and X blockquotes from the data model), and the pages `src/pages/index.astro` (the play list), `src/pages/plays/[slug].astro`, `src/pages/[kind]/index.astro` and `src/pages/[kind]/[slug].astro`. It also installs `typescript-idioms` from github-toolkit (`gh skill install yamat47/github-toolkit typescript-idioms --agent claude-code --scope project`) and reads it first.
+
+The PR also added what the pages share: `src/lib/catalog.ts` (the collections as entries), `labels.ts` (the Japanese words for values of the model), `hrefs.ts` (the URLs) and `src/components/PlayList.astro`.
 
 The step is done when `npm run build` writes a page for every play and every part, the chips on a play page link to `/{kind}/{slug}/`, and `/coverage/{slug}/` lists the plays whose `vs.coverage` is that slug.
 
