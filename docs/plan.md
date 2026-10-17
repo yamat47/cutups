@@ -130,7 +130,7 @@ The order is a guess and will change. Each step is one PR that is green on its o
 - [x] 2. Schema, validate and tests
 - [x] 3. infra-github: default branch and required check
 - [x] 4. Ingestion: the skill and extract.sh
-- [ ] 5. The first plays
+- [x] 5. The first plays
 - [ ] 6. The site
 - [ ] 7. Publishing
 - [ ] 8. Growing the catalog
