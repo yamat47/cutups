@@ -35,10 +35,11 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 
 ### Ingestion
 
-- The author drops a video and a sidecar with the same name (`url`, `author`, the `caption` verbatim, an optional `note`) into `inbox/` and runs `/ingest-play` in Claude Code. One play is one branch is one PR, and the PR review is the curation step.
+- The author drops a video and a sidecar with the same name (`url`, `author`, the `caption` verbatim, an optional `note`) into `application/inbox/` and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the PR review is the curation step.
+- `make inbox` serves a page on the author's machine (`application/scripts/inbox/`, port 4322) that takes the video and its URL and writes both files, with the author and the caption from the platform's oEmbed; `make lookup URL=` gives the same answer from the shell. This is not the scraping that was set aside: no page is fetched, no cookie is used, and the video is still handed over by the author. The endpoints and their caveats are in `lookup.ts`.
 - The skill (`.claude/skills/ingest-play/SKILL.md`) fixes the procedure in eight steps: make the material, read every existing part, parse the name, choose the parts, read the defense, write the play, validate, open the PR.
-- `scripts/extract.sh` does the deterministic preprocessing: 1 fps tiles, the diagram cut into three high-resolution strips, audio, and a transcript when faster-whisper is available.
-- `scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, the body headings are present. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
+- `application/scripts/extract.sh` does the deterministic preprocessing: 1 fps sheets, the diagram cut into three high-resolution strips, and a transcript when the Whisper model can be fetched. `make extract NAME=<name>` runs it in the container; the `Dockerfile` and `compose.yaml` say what it needs and why.
+- `application/scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, the body headings are present. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
 - The PR body follows `.claude/skills/ingest-play/pr-template.md` and carries the title-to-parts table, the `vs` evidence and confidence, the reason for each new part, and open questions. Inferences are marked as such. The template lives with the skill because a template under `.github/` would apply to every PR, the skill updates and the Dependabot bumps included.
 
 ### Site
@@ -59,11 +60,11 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - The content schema is written once, as zod in `src/content/schema.ts`, with `z` imported from `astro/zod` so that it runs outside Astro too. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
 - `astro/zod` is zod 4 (`zod/v4`), so the schema is written in its syntax (`z.strictObject`, `z.url()`, `z.int()`). The validate script parses frontmatter with `yaml`, the package Astro itself depends on, pinned as a direct dependency so that the lock file, not Astro's dependency tree, decides its version. `@types/node` is a direct dependency too, since `astro check` type-checks `scripts/`.
 - The draft's "no transcript" warning was dropped from validate. No play has a transcript for now, so it would have fired on every file and said nothing.
-- Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
+- Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts`, the rules in validate, the oEmbed lookup, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
 - Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler; this is off by default and `.oxfmtrc.json` turns it on with `astro: true`. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
 - oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging. A package whose major is decided by something else is ignored for majors in that file rather than closed by hand each month; the comments there say which and why. Dependabot proposes every newer version whatever the pin in `package.json` says, so the config is the only place for the rule.
 - CI is one workflow, `.github/workflows/ci.yml`, with one job named `check`: `npm ci`, then `npm run check` (astro check, oxlint, oxfmt --check), `npm test`, `npm run validate`, `npm run build`. `check` is the required check in infra-github. Actions are pinned by SHA with the version in a comment, following `github-actions-workflows`.
-- Development runs in Docker, never on the host: `Dockerfile`, `compose.yaml` and a `Makefile` whose targets wrap `docker compose run`. No devcontainer and no wrapper script; compose and make are enough. `application/.node-version` is the one place the Node version is pinned; the Makefile reads it and hands it to the image as a build argument, so there is no Dependabot `docker` entry, and a Node bump is a hand edit of that file, `engines` and the `@types/node` major. The dev server always binds every interface (`astro dev --host`), since the host only ever reaches it through the port mapping. The image installs nothing; `node_modules` and the npm cache are volumes, and `make install` fills them. CI stays on `actions/setup-node`: the runner is not the host, and building the image there would only add time.
+- Development runs in Docker, never on the host: `Dockerfile`, `compose.yaml` and a `Makefile` whose targets wrap `docker compose run`. No devcontainer and no wrapper script; compose and make are enough. `application/.node-version` is the one place the Node version is pinned; the Makefile reads it and hands it to the image as a build argument, so there is no Dependabot `docker` entry, and a Node bump is a hand edit of that file, `engines` and the `@types/node` major. The dev server always binds every interface (`astro dev --host`), since the host only ever reaches it through the port mapping. The image installs the tools of the ingestion (ffmpeg, faster-whisper) and nothing from `package.json`; `node_modules` and the npm cache are volumes, and `make install` fills them. CI stays on `actions/setup-node`: the runner is not the host, and building the image there would only add time.
 - The phase-2 `ingest.yml` stub is not committed. It would fire on the issue label and fail, since nothing hands it the video or an API key. It stays in the draft below as a memo.
 
 ### Skills for Claude Code
@@ -78,7 +79,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 
 - v0.1 made concepts the nodes, in a tree with hand-written `parent` / `beats` / `pairs_with`. The actual videos turned out to diagram one play from one game rather than explain a concept, and one play is a composition of several concepts (`GY Counter` plus `Reverse` plus `Throwback`), so it does not fit one place in a tree. `situations` (3rd and medium, and so on) and `status: stub` went with it.
 - Dify was considered and set aside. The real cost is getting the video and caption out of Instagram, and Dify has no node for that. The rest (ffmpeg, the LLM's judgment, git) is custom code either way, so a workflow builder in between does not shorten anything.
-- No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. For now the author hands over the video and the caption.
+- No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. The author hands over the video; the caption comes from oEmbed when the endpoint answers, and from the author otherwise.
 - `vs.front` (4-2-5 and so on) is not a vocabulary. The field exists and accepts null.
 - A React island for walking relations. The relations are derived at build time, so a chip is a link to a static page and the client has nothing to compute. An island is added when an interaction needs one.
 - validate with a schema of its own (the draft's `validate.mjs`), next to the zod schema the site needs. Every new field would have been written twice.
@@ -86,7 +87,7 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - Tailwind. Four page types and a handful of components do not need a utility framework.
 - Vercel. GitHub Pages needs no account outside GitHub, and infra-github already manages the repository. The PR review is about content, so per-PR previews are not needed.
 - A devcontainer (`.devcontainer/` with `devcontainer.json`) and a `scripts/dcc` wrapper around the devcontainer CLI, as in yamat47/waggle. The directory layout of waggle was taken; the tooling was not, since compose and a Makefile do the same job here without a CLI on the host.
-- A `vitest.config.ts`. The only setting it would carry is the test pattern, and vitest's default already finds `src/**/*.test.ts`.
+- A `vitest.config.ts`. The only setting it would carry is the test pattern, and vitest's default already finds the `*.test.ts` files under `src/` and `scripts/`.
 - Committing the phase-2 `ingest.yml` as a stub. It triggers on an issue label and has nothing to run with, so it would only produce failed runs.
 
 ## What four videos taught
@@ -103,7 +104,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 - The last two share `pass: wheel` and `action: bluff` and differ only in how the wheel is sold (a screen fake or play action). The shared parts line them up as two examples of the H bluffing and then running the wheel, with no relation written by hand. The relation the model was built for appeared at four plays.
 - Authors name plays in different places and with different grammars. playdesignerpro writes `game` plus `Motion Formation Concept` as an overlay inside the video. offensive_guru writes `Team Formation ➡️ Concept` in the caption, which is truncated on screen. Videos from offensive_guru need the caption text handed over with them.
 - A trick play's whole point is that the defense breaks down, so only the pre-snap alignment is usable as evidence and `confidence` ends up low. This will keep happening.
-- Reading the diagrams. In PlayDesignerPro-style diagrams a bar at the end of a line is a block, an arrow is a route, a zigzag is motion, and a yellow or orange line is where the ball went. A short bar in the middle of a route is a bluff (a fake block before the route).
+- Reading the diagrams: the notation is recorded under "Reading the diagram" in `DATA_MODEL.md`.
 - In the cloud environment the Whisper model hosts (HuggingFace, Azure CDN) are blocked, so no transcript was produced. It works in a local Claude Code. All four plays have no transcript, and their `vs` is inferred from the diagram and the footage.
 - The opponent is not always identifiable from the footage (for the Wisconsin game only "white jerseys, dark helmets" could be seen). `game.away: unknown` is accepted and validate warns about it.
 
@@ -115,6 +116,10 @@ The plays processed with the draft and the result. The files went with the zip; 
 - The GitHub Actions version that turns an issue into a PR. The stub is kept in the draft below and not committed. Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
 - More skills from github-toolkit once there is code for them: `typescript-idioms` with the first code PR, `frontend-design` for the look. Not `react-patterns`, since there is no React.
 - Whether `kind` stays in a part's frontmatter. The directory already says it, validate checks that the two agree, and the collection id is `{kind}/{slug}`, so the field may be redundant. Decide when the first parts are written.
+- Where a transcript lives. `video.transcript` is a field of the model, but extract writes the transcript into the gitignored inbox and nothing carries it into the repository, so the evidence behind a `high` confidence is gone after the PR. Either the skill copies it into the content and the field points at it, or the field goes and the skill quotes the lines into 「守備の読み」.
+- Whether validate derives the slug prefix from `game`. The formula `{season}-{away}-{home}-{title-kebab}` is prose only, and how a team name becomes kebab (`mtsu`, `hou-christian`) is decided by hand each time.
+- The diagram frame is taken at a fixed second (`AT=3` by default). When authors with another layout arrive, extract may need to find the still-to-film cut itself.
+- Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup to come in step 6. One record per platform would make a new platform a row rather than three edits; do it when the embed component arrives.
 - The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
 
 ## Next
@@ -123,8 +128,8 @@ The order is a guess and will change. Each step is one PR that is green on its o
 
 - [x] 1. Toolchain
 - [x] 2. Schema, validate and tests
-- [ ] 3. infra-github: default branch and required check
-- [ ] 4. Ingestion: the skill and extract.sh
+- [x] 3. infra-github: default branch and required check
+- [x] 4. Ingestion: the skill and extract.sh
 - [ ] 5. The first plays
 - [ ] 6. The site
 - [ ] 7. Publishing
@@ -150,13 +155,13 @@ In the infra-github repository, not this one: remove `manage_default_branch = fa
 
 ### 4. Ingestion: the skill and extract.sh
 
-The PR adds `.claude/skills/ingest-play/SKILL.md` (the eight steps of the draft, with `npm run validate` in place of the old command and the template path below), `.claude/skills/ingest-play/pr-template.md`, `application/scripts/extract.sh` as in the draft, and `application/inbox/README.md` as in the draft. ffmpeg and python3 with faster-whisper go into the `Dockerfile`, with a `make extract` target, so that the extraction runs in the container like everything else. The skill reads the existing parts before creating one, never commits video files, and never changes an existing part's definition in passing.
+The PR adds `.claude/skills/ingest-play/SKILL.md` and `pr-template.md`, `application/scripts/extract.sh`, `application/inbox/README.md`, ffmpeg and faster-whisper in the `Dockerfile` with a `make extract` target, and the confidence rubric and the diagram notation in `DATA_MODEL.md`.
 
-The step is done when `bash scripts/extract.sh inbox/test.mp4` writes `sheet.jpg`, `diagram_1.png` to `diagram_3.png` and `audio.wav` for a synthetic video made with `ffmpeg -f lavfi -i testsrc=duration=12:size=1180x2556:rate=30 -f lavfi -i sine=frequency=440:duration=12 -pix_fmt yuv420p inbox/test.mp4`, and `python3 .claude/skills/skill-creator/scripts/quick_validate.py .claude/skills/ingest-play` passes.
+The step is done when `make extract NAME=test` writes `sheet_1.jpg` and `diagram_1.png` to `diagram_3.png` and reports no speech for a synthetic video made with `ffmpeg -f lavfi -i testsrc=duration=12:size=1180x2556:rate=30 -f lavfi -i sine=frequency=440:duration=12 -pix_fmt yuv420p inbox/test.mp4` next to an empty `inbox/test.yaml`, and `python3 .claude/skills/skill-creator/scripts/quick_validate.py .claude/skills/ingest-play` passes.
 
 ### 5. The first plays
 
-The author hands over videos one at a time, each with its sidecar, and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the review is the curation. The four videos under "What four videos taught" come first: their URLs are known, and the parts and `vs` in the table are the expected result. Whatever the review corrects goes back into the skill or the part's 「見分け方」 in the same PR.
+The author hands over videos one at a time through `make inbox`, which writes the video and its sidecar, and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the review is the curation. The four videos under "What four videos taught" come first: their URLs are known, and the parts and `vs` in the table are the expected result. Whatever the review corrects goes back into the skill or the part's 「見分け方」 in the same PR.
 
 The step is ticked when two plays are on `main`, so that the site in step 6 has a shared part to show. Ingestion continues through every later step.
 
@@ -184,152 +189,7 @@ Not one PR. Five to ten more videos to grow the part vocabulary and the coverage
 
 ## The draft (playbook-v0.4.zip)
 
-The reference the code is rewritten from. The zip is gone, so these copies are all that is left of it. The skill and the scripts are rewritten under the Code rules above, and the copies show what the draft did. The play and part files show the shape a new play or part takes; they are not restored as content. When a PR makes one of these files real, it deletes the copy here.
-
-<details>
-<summary>.claude/skills/ingest-play/SKILL.md</summary>
-
-````markdown
----
-name: ingest-play
-description: Turn a video (plus its caption) in inbox/ into a play example and any missing parts, run validate, and open a PR. Use whenever one or more videos are handed over.
----
-
-# /ingest-play
-
-Input: `inbox/<name>.mp4` and a sidecar `inbox/<name>.yaml` with the same name (url, author, caption verbatim). Ask for the sidecar when it is missing.
-Output: `content/plays/<slug>.md` (plus any new parts). One play, one branch, one PR.
-
-## Steps, in this order
-
-1. **Make the material**: `bash scripts/extract.sh inbox/<name>.mp4`
-   This writes `inbox/<name>/` with `sheet.jpg` (1 fps tiles), `diagram_*.png` (the diagram in three high-resolution strips) and `transcript.txt` (when Whisper is available). Read the sheet and the diagrams with Read. Read the transcript when there is one.
-
-2. **Read everything that exists**: `content/components/**/*.md` and `content/plays/*.md`. Before creating a part, check that nothing existing matches, aliases included.
-
-3. **Parse the name**: split the author's title or caption into parts. Each author's grammar is in `DATA_MODEL.md` under "Where authors put the play name". When the caption was cut off, mark the inferred part in a comment next to `title`.
-
-4. **Choose the parts**: formation / motion / run / pass / action. Omit keys the play does not have. A new part has the two headings 「何か」 and 「見分け方」, with a definition of three to five lines. A variant points at its parent with `variant_of`.
-
-5. **Read the defense**: check the frames against the 「見分け方」 of each `content/components/coverage/*.md`, in this order: number of deep safeties, then what the corners do, then whether anyone follows motion. Confidence is
-   - high: the author says so in the transcript
-   - medium: the diagram and the footage agree, and at least two cues from 「見分け方」 match
-   - low: only the pre-snap alignment is available, or the camera angle hides it
-
-6. **Write the play**: follow the template in `DATA_MODEL.md`. The slug is `{season}-{away}-{home}-{title-kebab}`. The three body headings are 「このプレーの何が面白いか」, 「展開」, 「守備の読み」, written in Japanese. When an existing play shares parts with this one, 「このプレーの何が面白いか」 names the contrast (same parts, different way of selling it, and so on).
-
-7. **Validate**: `node scripts/validate.mjs`. Fix every error. Carry each warning (a reference that does not exist yet, and so on) into the PR body.
-
-8. **Open the PR**: branch `play/<slug>`. The body follows `scripts/pr-template.md`:
-   - the title-to-parts table (which word became which part)
-   - the `vs` evidence and confidence
-   - each new part and why it is new
-   - open questions (unknown opponent, truncated caption, and so on)
-
-## Never
-
-- Commit video files or anything under inbox/
-- Raise confidence without evidence
-- Change an existing part's definition in passing (that is its own PR)
-````
-
-</details>
-
-<details>
-<summary>scripts/extract.sh</summary>
-
-````bash
-#!/usr/bin/env bash
-# Usage: bash scripts/extract.sh inbox/<name>.mp4
-# Writes inbox/<name>/{sheet.jpg, diagram_1..3.png, audio.wav, transcript.txt}
-set -euo pipefail
-src="$1"; name="$(basename "${src%.*}")"; out="$(dirname "$src")/$name"
-mkdir -p "$out"
-
-# Phone screen recordings are portrait (1180x2556 and the like).
-read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$src" | tr ',' ' ')
-
-# One frame per second, tiled, to see the whole play at a glance.
-n=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src" | cut -d. -f1)
-cols=6; rows=$(( (n + cols - 1) / cols ))
-ffmpeg -y -v error -i "$src" -vf "fps=1,scale=590:-1,tile=${cols}x${rows}" "$out/sheet.jpg"
-
-# The diagram sits in the top part of the frame. Three overlapping strips
-# (0-35%, 30-65%, 60-95% of the height) at full resolution keep the labels legible.
-for i in 1 2 3; do
-  y=$(( H * (i - 1) * 30 / 100 )); h=$(( H * 35 / 100 ))
-  ffmpeg -y -v error -ss 3 -i "$src" -frames:v 1 -vf "crop=${W}:${h}:0:${y}" "$out/diagram_$i.png"
-done
-
-# Audio, then a transcript when faster-whisper is installed.
-ffmpeg -y -v error -i "$src" -vn -ac 1 -ar 16000 "$out/audio.wav"
-if python3 -c "import faster_whisper" 2>/dev/null; then
-  if python3 - "$out/audio.wav" > "$out/transcript.txt" 2>/dev/null <<'PY'
-import sys
-from faster_whisper import WhisperModel
-segs, _ = WhisperModel("small", device="cpu", compute_type="int8").transcribe(sys.argv[1], vad_filter=True)
-for s in segs: print(f"[{s.start:5.1f}] {s.text.strip()}")
-PY
-  then echo "transcript: $out/transcript.txt"
-  else rm -f "$out/transcript.txt"; echo "transcription failed (model download blocked, or similar); continuing without it"
-  fi
-else
-  echo "faster-whisper is not installed; skipping the transcript (pip install faster-whisper)"
-fi
-echo "done: $out"
-````
-
-</details>
-
-<details>
-<summary>scripts/pr-template.md</summary>
-
-````markdown
-## Added
-- `content/plays/<slug>.md`
-- New parts: (delete this line when there are none)
-
-## Title to parts
-| Word in the title | Part | Existing or new |
-| --- | --- | --- |
-
-## vs
-- coverage:
-- confidence:
-- evidence:
-
-## Open questions
--
-````
-
-</details>
-
-<details>
-<summary>inbox/README.md</summary>
-
-````markdown
-# inbox
-
-Drop a video and its sidecar here, then run `/ingest-play`. Everything here except this file is gitignored.
-
-```
-inbox/
-  bills-rams-bunch-trail.mp4
-  bills-rams-bunch-trail.yaml
-```
-
-The sidecar:
-```yaml
-url: https://www.instagram.com/reel/XXXX/
-author: playdesignerpro
-caption: |
-  (the caption, verbatim; empty when there is none)
-note: |
-  (optional, your own note: "came right after the counter in the first half", and so on)
-```
-````
-
-</details>
+The reference the code is rewritten from. The zip is gone, so these copies are all that is left of it. The play and part files show the shape a new play or part takes; they are not restored as content. When a PR makes one of these files real, it deletes the copy here.
 
 <details>
 <summary>.github/workflows/ingest.yml (phase 2 stub, not committed)</summary>

@@ -1,5 +1,8 @@
 services:
   app:
+    # Node is PID 1 in a one-off container and PID 1 gets no default signal
+    # handling, so Ctrl+C would not stop the inbox server. tini forwards it.
+    init: true
     build:
       context: .
       args:
@@ -15,7 +18,11 @@ services:
       # The npm download cache would die with the container otherwise, and every
       # `make install` would fetch the whole tree again.
       - npm_cache:/root/.npm
+      # faster-whisper downloads its model on first use (hundreds of MB); the
+      # volume keeps it across containers.
+      - whisper_cache:/root/.cache/huggingface
 
 volumes:
   node_modules:
   npm_cache:
+  whisper_cache:

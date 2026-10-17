@@ -92,6 +92,14 @@ The body headings are Japanese because the body is for Japanese readers. Their n
 | video.url, video.author, video.kind     | yes      |                                                  |
 | three body headings                     | yes      | 「守備の読み」 is the long form of `vs.evidence` |
 
+### Confidence
+
+`vs.confidence` says how the defense was read, so that a reader of the play knows what the call rests on:
+
+- `high`: the author says so, in the transcript or the caption.
+- `medium`: the diagram and the footage agree, and at least two cues from the coverage's 「見分け方」 match.
+- `low`: only the pre-snap alignment is usable, or the camera angle hides it. A trick play's whole point is that the defense breaks down, so it ends here.
+
 ## A part
 
 ```yaml
@@ -114,7 +122,7 @@ A part's body is short: the definition and how to recognize it. Per-play comment
 
 ### Coverage parts are special
 
-Because `vs` is required, reading the defense has to get cheaper. The 「見分け方」 section of a coverage part doubles as the checklist that is run against the frames. For example:
+Because `vs` is required, reading the defense has to get cheaper. The 「見分け方」 section of a coverage part doubles as the checklist that is run against the frames, in a fixed order: the number of deep safeties, then what the corners do, then whether anyone follows the motion. For example:
 
 - cover-1: one safety deep in the middle, corners squared up on receivers, a defender follows motion
 - cover-3: one safety deep in the middle, corners backpedal deep and outside, nobody follows motion
@@ -161,6 +169,10 @@ A play page shows its parts and its `vs` as chips. A chip leads to the list of p
 | offensive_guru  | the caption (truncated on screen) | `Team Formation ➡️ Concept`         |
 
 For authors who name the play in the caption, the caption text is handed over with the video. When the caption was cut off, the inferred part of `title` is marked in a comment.
+
+## Reading the diagram
+
+In PlayDesignerPro-style diagrams a bar at the end of a line is a block, an arrow is a route, a zigzag is a motion, and a yellow or orange line is where the ball went. A short bar in the middle of a route is a bluff, a fake block before the route.
 
 ## Dropped since v0.1
 
