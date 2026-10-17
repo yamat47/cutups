@@ -1,0 +1,762 @@
+# Plan
+
+This is a working log, not a specification. The project moves by trial and error with Claude Code: what was decided, what was dropped, what is still open. Rewrite it as things change.
+
+## What this is
+
+A catalog of football play examples. The source material is videos on Instagram and X that diagram one play from one game (playdesignerpro, offensive_guru and similar accounts). Each play is organized by its parts: formation, motion, run scheme, pass concept, action, and the defense the opponent showed. The readers are Japanese coaches and players who come here when they want to add a play. Nothing is translated, but tags and commentary are written in Japanese. Collection is not automated: the author (yamat47) picks the videos and hands them over with their captions.
+
+## Decided so far
+
+### Data model (v0.2.1)
+
+- The repository is the database. One video is one play example is one file in `content/plays/*.md` (YAML frontmatter plus Markdown). There is no server and no external database; the result is a static site.
+- The node is a play example, not a concept. Concepts (Bunch, Trail, Cover 1 and so on) are parts in `content/components/{kind}/*.md`, and a play is a composition of parts. Parsing the author's title (`Y-Short Bunch Trail`) gives `motion: y-short`, `formation: bunch`, `pass: trail` directly.
+- There are six kinds of part: formation, motion, run, pass, action, coverage. A part file has two headings only, the definition (「何か」) and how to recognize it (「見分け方」). A variant points at its parent with `variant_of` (`gy-counter` and `counter-solid` are both `counter`).
+- `vs`, the defense the opponent showed on this play, is required. A guess is allowed, but `coverage`, `confidence` (high / medium / low) and `evidence` always come together. It records what was actually shown, not what the play is meant to beat.
+- Relations are never written by hand. "Same picture, different play" (same formation and motion), "same scheme" (same run or pass) and "plays used against this defense" (same vs) are derived at build time from shared parts. The only hand-written relation is `builds_on`, used when the author says the play was designed against another one.
+- A play body has three headings: what is interesting about this play, how it unfolds, and how the defense was read. A part page carries the definition once; per-play commentary lives in the play.
+- The vocabulary grows from examples. A missing part is added in the same PR as the play. There is no taxonomy designed up front.
+- A play's slug is `{season}-{away}-{home}-{title-kebab}`.
+- Video files never enter the repository. Only the URL is stored, and the site shows the platform's official embed (Instagram: `<blockquote class="instagram-media" data-instgrm-permalink="URL">` plus embed.js; X: `<blockquote class="twitter-tweet"><a href="URL"></a></blockquote>` plus widgets.js). Both work from the URL alone, so no oEmbed API and no token are needed.
+- Play and component bodies are Japanese, for the readers. Everything else in the repository (docs, code, commit messages) is English.
+
+### Ingestion
+
+- The author drops a video and a sidecar with the same name (`url`, `author`, the `caption` verbatim, an optional `note`) into `inbox/` and runs `/ingest-play` in Claude Code. One play is one branch is one PR, and the PR review is the curation step.
+- The skill (`.claude/skills/ingest-play/SKILL.md`) fixes the procedure in eight steps: make the material, read every existing part, parse the name, choose the parts, read the defense, write the play, validate, open the PR.
+- `scripts/extract.sh` does the deterministic preprocessing: 1 fps tiles, the diagram cut into three high-resolution strips, audio, and a transcript when faster-whisper is available.
+- `scripts/validate.mjs` checks that every referenced part exists, that `vs` has all three fields, that the body headings are present, and so on. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
+- The PR body carries the title-to-parts table, the `vs` evidence and confidence, the reason for each new part, and open questions. Inferences are marked as such.
+
+### Site
+
+- Astro's content collections read `content/` as is. Only the part that walks relations becomes a React island.
+- The search box is secondary. The main movement is pivoting: a play page shows its parts and its `vs` as chips, and a chip leads to every play that shares it.
+
+## Tried and dropped
+
+- v0.1 made concepts the nodes, in a tree with hand-written `parent` / `beats` / `pairs_with`. The actual videos turned out to diagram one play from one game rather than explain a concept, and one play is a composition of several concepts (`GY Counter` plus `Reverse` plus `Throwback`), so it does not fit one place in a tree. `situations` (3rd and medium, and so on) and `status: stub` went with it.
+- Dify was considered and set aside. The real cost is getting the video and caption out of Instagram, and Dify has no node for that. The rest (ffmpeg, the LLM's judgment, git) is custom code either way, so a workflow builder in between does not shorten anything.
+- No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. For now the author hands over the video and the caption.
+- `vs.front` (4-2-5 and so on) is not a vocabulary. The field exists and accepts null.
+
+## What four videos taught
+
+The plays processed so far and the result.
+
+| Play | Author | Parts | vs |
+| --- | --- | --- | --- |
+| 2026 Bills @ Rams "Y-Short Bunch Trail" https://www.instagram.com/reel/DecbK2ZAxuD/ | playdesignerpro | bunch, y-short, trail | cover-1 (medium) |
+| 2026 Delaware @ Middle Tennessee "GY Counter Reverse Throwback" https://www.instagram.com/reel/Dehb6Nsg5IH/ | playdesignerpro | gy-counter, reverse, throwback | cover-1 (low) |
+| 2026 Houston Christian @ North Texas "Trips Nub, H Wheel" https://www.instagram.com/reel/DeRtG4KC17y/ | offensive_guru | trips-nub, wheel, bluff, screen-fake | cover-2 (medium) |
+| 2026 (unknown) @ Wisconsin "Counter Solid Bluff, H Wheel" https://www.instagram.com/reel/DeO87TLiFxc/ | offensive_guru | counter-solid, wheel, play-action, bluff | quarters (low) |
+
+- The last two share `pass: wheel` and `action: bluff` and differ only in how the wheel is sold (a screen fake or play action). The shared parts line them up as two examples of the H bluffing and then running the wheel, with no relation written by hand. The relation the model was built for appeared at four plays.
+- Authors name plays in different places and with different grammars. playdesignerpro writes `game` plus `Motion Formation Concept` as an overlay inside the video. offensive_guru writes `Team Formation ➡️ Concept` in the caption, which is truncated on screen. Videos from offensive_guru need the caption text handed over with them.
+- A trick play's whole point is that the defense breaks down, so only the pre-snap alignment is usable as evidence and `confidence` ends up low. This will keep happening.
+- Reading the diagrams. In PlayDesignerPro-style diagrams a bar at the end of a line is a block, an arrow is a route, a zigzag is motion, and a yellow or orange line is where the ball went. A short bar in the middle of a route is a bluff (a fake block before the route).
+- In the cloud environment the Whisper model hosts (HuggingFace, Azure CDN) are blocked, so no transcript was produced. It works in a local Claude Code. All four plays have no transcript, and their `vs` is inferred from the diagram and the footage.
+- The opponent is not always identifiable from the footage (for the Wisconsin game only "white jerseys, dark helmets" could be seen). `game.away: unknown` is accepted and validate warns about it.
+
+## Still open
+
+- Hosting. GitHub Pages (with `cutups.yamat47.me` as the cname) or Vercel. Once decided, add `pages` to the `cutups` entry in infra-github.
+- Search that starts from the defense ("bunch plays against Cover 1"). How to present it.
+- Whether `game` becomes a chip, for the day someone wants "that play from that game".
+- Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
+- The GitHub Actions version that turns an issue into a PR (there is a stub in `.github/workflows/ingest.yml`). Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
+- The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
+
+## Next
+
+The order is a guess and will change.
+
+1. Commit the draft (playbook-v0.4.zip, contents in the details below) as the first content commit: `CLAUDE.md`, `DATA_MODEL.md`, `content/`, `scripts/`, `.claude/skills/ingest-play/`, `inbox/README.md`, `package.json`. Run `npm install` and check that `node scripts/validate.mjs` ends with `4 plays, 16 components: 0 errors, 7 warnings`.
+2. Remove `manage_default_branch = false` from the `cutups` entry in infra-github.
+3. Add a workflow that runs validate in CI, and put its job name into `required_checks` in infra-github.
+4. Build the site skeleton in Astro: the play list, a play page (embed, part chips, vs), a part page (every play with that part). Relations are derived at build time.
+5. Add five to ten more videos to grow the part vocabulary and the coverage recognition cues. Whatever gets corrected in review goes back into the skill.
+6. Decide on hosting and publish.
+
+## How the work goes
+
+- The author hands over a video and its caption, Claude Code opens a PR through `/ingest-play`, the author reviews and merges. Whatever the review corrected is written back into the skill or into a part's 「見分け方」, so the next video from the same author does not repeat it.
+- Model changes are small and come with their reason. The move from v0.1 to v0.2 only became necessary after two real videos had been processed. The order stays: process videos, then fix what got in the way.
+- Changing an existing part's definition is its own PR, separate from adding plays.
+
+## The draft (playbook-v0.4.zip)
+
+The files the first content commit is made from. When the zip is not at hand, restore them from here.
+
+<details>
+<summary>CLAUDE.md</summary>
+
+````markdown
+# cutups: a catalog of football play examples
+
+The repository is the database. One video is one play example in `content/plays/*.md`. Concepts live in `content/components/` as parts, and a play is a composition of parts. The full model is in `DATA_MODEL.md`.
+
+## Entry points
+- Ingest a new video: `/ingest-play` (`.claude/skills/ingest-play/SKILL.md`)
+- Check the content: `node scripts/validate.mjs` (always before a PR)
+
+## Rules
+- `vs` is required. A guess is fine, but it always comes with `confidence` and `evidence`.
+- When a part is missing, add `content/components/{kind}/{slug}.md` in the same PR. Read every existing part before adding one.
+- Never write relations (derivatives, series, counters) by hand. They are derived from shared parts at build time.
+- Never commit video files (`inbox/` is gitignored).
+- Mark every inference, in a frontmatter comment or in the PR body. Do not state a guess as fact.
+- Play and component bodies are written in Japanese for the readers. Titles and part names use the English that the author or coaches use; the Japanese goes in `title_ja`. Everything else in the repository (docs, code, commits) is English.
+````
+
+</details>
+
+<details>
+<summary>DATA_MODEL.md</summary>
+
+````markdown
+# Data model v0.2.1
+
+Changes from v0.1: the node is a play example, not a concept. Concepts are parts attached to examples, and relations are derived at build time from the parts that plays share. `vs` (the defense the opponent showed) is required.
+
+## Principles
+
+1. One video is one play example is one file. That is the only kind of node.
+2. A play is a composition of parts: formation, motion, run scheme, pass concept, action. The author's title (for example *Y-Short Bunch Trail*) is parsed into parts.
+3. `vs` is required. It records the defense the opponent actually showed on this play, not what the play is meant to beat. A guess is allowed, with evidence.
+4. Relations are never written by hand. They are derived from shared parts. The one exception is `builds_on`.
+5. The vocabulary grows from examples. When a part is missing, the part file is added in the same PR.
+6. Video files never enter the repository. Only the URL is stored, and the site shows the official embed.
+
+## Directory layout
+
+```
+content/
+  plays/
+    2026-bills-rams-y-short-bunch-trail.md
+    2026-delaware-mtsu-gy-counter-reverse-throwback.md
+  components/
+    formation/  bunch.md
+    motion/     y-short.md
+    run/        gy-counter.md
+    pass/       trail.md
+    action/     reverse.md  throwback.md
+    coverage/   cover-1.md
+scripts/
+  validate.mjs
+```
+
+A play's slug is `{season}-{away}-{home}-{title-kebab}`. The same play name in the same game is unlikely to repeat.
+
+## A play example
+
+```yaml
+---
+title: Y-Short Bunch Trail          # the author's name for it, verbatim (canonical)
+title_ja: Yショート・バンチ・トレイル
+phase: offense                      # offense | defense | kick
+
+game:
+  season: 2026
+  away: Bills
+  home: Rams
+  level: nfl                        # nfl | ncaa | other
+  offense: Bills                    # the team on offense
+
+components:                         # each value must exist as components/{kind}/{slug}.md
+  formation: bunch
+  motion: y-short
+  pass: trail
+  # omit run / action when the play has none
+
+vs:                                 # required
+  coverage: cover-1                 # a slug under components/coverage/
+  confidence: medium                # high | medium | low
+  evidence: The nickel follows Y's short motion. One safety deep in the middle.
+  front: null                       # optional, e.g. 4-2-5. Not a vocabulary yet.
+
+builds_on: null                     # optional. Only when the author says this play was designed against that play.
+
+video:
+  url: https://www.instagram.com/reel/DecbK2ZAxuD/
+  author: playdesignerpro
+  kind: diagram+film                # diagram+film | film | diagram | talk
+  caption: null                     # the caption verbatim, for authors who name the play there
+  transcript: null                  # relative path to transcripts/{slug}.txt when one exists
+---
+
+## このプレーの何が面白いか
+(The editor's voice. Written for every play.)
+
+## 展開
+(Who moves where. Bullets.)
+
+## 守備の読み
+(The long form of `vs.evidence`: what in the footage led to the call.)
+```
+
+The body headings are Japanese because the body is for Japanese readers. Their names are fixed; `validate.mjs` checks them.
+
+### Required and optional
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| title, title_ja, phase, game | yes | |
+| components | yes | at least one; every value must have a part file (checked in CI) |
+| vs.coverage, vs.confidence, vs.evidence | yes | `low` is fine; empty is not |
+| vs.front, builds_on | no | |
+| video.url, video.author, video.kind | yes | |
+| three body headings | yes | 「守備の読み」 is the long form of `vs.evidence` |
+
+## A part
+
+```yaml
+---
+kind: pass                          # formation | motion | run | pass | action | coverage
+title: Trail
+title_ja: トレイル
+aliases: [Return, Whip, リターン]
+variant_of: null                    # optional. The parent slug in the same kind (gy-counter -> counter)
+---
+
+## 何か
+(The definition, written once. Three to five lines.)
+
+## 見分け方
+(What in the footage identifies it. Matters most for coverage.)
+```
+
+A part's body is short: the definition and how to recognize it. Per-play commentary belongs in the play.
+
+### Coverage parts are special
+
+Because `vs` is required, reading the defense has to get cheaper. The 「見分け方」 section of a coverage part doubles as the checklist Claude runs against the frames. For example:
+
+- cover-1: one safety deep in the middle, corners squared up on receivers, a defender follows motion
+- cover-3: one safety deep in the middle, corners backpedal deep and outside, nobody follows motion
+- cover-2: two safeties deep on the hashes, corners jam and stay shallow
+
+## Derived at build time
+
+| Derived view | Rule |
+| --- | --- |
+| part page | every play that has the part |
+| same picture, different play (a series) | same formation and motion, different run / pass / action |
+| same scheme | same run or same pass; parts sharing a `variant_of` parent are listed as one family |
+| plays used against this defense | grouped by vs.coverage |
+| counters | the reverse of builds_on |
+| search index | title / title_ja / aliases (parts included) / game |
+
+## How the site is navigated
+
+A play page shows its parts and its `vs` as chips. A chip leads to the list of plays that share it. The search box is secondary; the main movement is pivoting through chips.
+
+## Where authors put the play name
+
+| Author | Where | Grammar |
+| --- | --- | --- |
+| playdesignerpro | overlay inside the video | `game` + `Motion Formation Concept` |
+| offensive_guru | the caption (truncated on screen) | `Team Formation ➡️ Concept` |
+
+For authors who name the play in the caption, expand the caption before recording, or paste the caption text next to the link. When the caption was cut off, mark the inferred part of `title` in a comment.
+
+## How Claude opens a PR
+
+1. Cut frames and transcribe.
+2. Parse the title into candidate parts. Read all of `components/` and match against existing parts, aliases included.
+3. Create part files for anything missing (definition and how to recognize it).
+4. Read the defense from the frames against the coverage parts' 「見分け方」 and write the evidence. When unsure, `confidence: low`.
+5. Write the play file.
+6. Run validate.
+7. In the PR body: the title-to-parts table, the `vs` evidence and confidence, the reason for each new part.
+
+## Dropped since v0.1
+
+- `parent` / `beats` / `pairs_with`: replaced by derivation.
+- `situations`: removed for now. `vs` and parts cover it. Can come back later.
+- `status: stub`: a part may exist with zero plays, so stubs are not needed.
+````
+
+</details>
+
+<details>
+<summary>.claude/skills/ingest-play/SKILL.md</summary>
+
+````markdown
+---
+name: ingest-play
+description: Turn a video (plus its caption) in inbox/ into a play example and any missing parts, run validate, and open a PR. Use whenever one or more videos are handed over.
+---
+
+# /ingest-play
+
+Input: `inbox/<name>.mp4` and a sidecar `inbox/<name>.yaml` with the same name (url, author, caption verbatim). Ask for the sidecar when it is missing.
+Output: `content/plays/<slug>.md` (plus any new parts). One play, one branch, one PR.
+
+## Steps, in this order
+
+1. **Make the material**: `bash scripts/extract.sh inbox/<name>.mp4`
+   This writes `inbox/<name>/` with `sheet.jpg` (1 fps tiles), `diagram_*.png` (the diagram in three high-resolution strips) and `transcript.txt` (when Whisper is available). Read the sheet and the diagrams with Read. Read the transcript when there is one.
+
+2. **Read everything that exists**: `content/components/**/*.md` and `content/plays/*.md`. Before creating a part, check that nothing existing matches, aliases included.
+
+3. **Parse the name**: split the author's title or caption into parts. Each author's grammar is in `DATA_MODEL.md` under "Where authors put the play name". When the caption was cut off, mark the inferred part in a comment next to `title`.
+
+4. **Choose the parts**: formation / motion / run / pass / action. Omit keys the play does not have. A new part has the two headings 「何か」 and 「見分け方」, with a definition of three to five lines. A variant points at its parent with `variant_of`.
+
+5. **Read the defense**: check the frames against the 「見分け方」 of each `content/components/coverage/*.md`, in this order: number of deep safeties, then what the corners do, then whether anyone follows motion. Confidence is
+   - high: the author says so in the transcript
+   - medium: the diagram and the footage agree, and at least two cues from 「見分け方」 match
+   - low: only the pre-snap alignment is available, or the camera angle hides it
+
+6. **Write the play**: follow the template in `DATA_MODEL.md`. The slug is `{season}-{away}-{home}-{title-kebab}`. The three body headings are 「このプレーの何が面白いか」, 「展開」, 「守備の読み」, written in Japanese. When an existing play shares parts with this one, 「このプレーの何が面白いか」 names the contrast (same parts, different way of selling it, and so on).
+
+7. **Validate**: `node scripts/validate.mjs`. Fix every error. Carry each warning (a reference that does not exist yet, and so on) into the PR body.
+
+8. **Open the PR**: branch `play/<slug>`. The body follows `scripts/pr-template.md`:
+   - the title-to-parts table (which word became which part)
+   - the `vs` evidence and confidence
+   - each new part and why it is new
+   - open questions (unknown opponent, truncated caption, and so on)
+
+## Never
+
+- Commit video files or anything under inbox/
+- Raise confidence without evidence
+- Change an existing part's definition in passing (that is its own PR)
+````
+
+</details>
+
+<details>
+<summary>scripts/extract.sh</summary>
+
+````bash
+#!/usr/bin/env bash
+# Usage: bash scripts/extract.sh inbox/<name>.mp4
+# Writes inbox/<name>/{sheet.jpg, diagram_1..3.png, audio.wav, transcript.txt}
+set -euo pipefail
+src="$1"; name="$(basename "${src%.*}")"; out="$(dirname "$src")/$name"
+mkdir -p "$out"
+
+# Phone screen recordings are portrait (1180x2556 and the like).
+read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$src" | tr ',' ' ')
+
+# One frame per second, tiled, to see the whole play at a glance.
+n=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src" | cut -d. -f1)
+cols=6; rows=$(( (n + cols - 1) / cols ))
+ffmpeg -y -v error -i "$src" -vf "fps=1,scale=590:-1,tile=${cols}x${rows}" "$out/sheet.jpg"
+
+# The diagram sits in the top part of the frame. Three overlapping strips
+# (0-35%, 30-65%, 60-95% of the height) at full resolution keep the labels legible.
+for i in 1 2 3; do
+  y=$(( H * (i - 1) * 30 / 100 )); h=$(( H * 35 / 100 ))
+  ffmpeg -y -v error -ss 3 -i "$src" -frames:v 1 -vf "crop=${W}:${h}:0:${y}" "$out/diagram_$i.png"
+done
+
+# Audio, then a transcript when faster-whisper is installed.
+ffmpeg -y -v error -i "$src" -vn -ac 1 -ar 16000 "$out/audio.wav"
+if python3 -c "import faster_whisper" 2>/dev/null; then
+  if python3 - "$out/audio.wav" > "$out/transcript.txt" 2>/dev/null <<'PY'
+import sys
+from faster_whisper import WhisperModel
+segs, _ = WhisperModel("small", device="cpu", compute_type="int8").transcribe(sys.argv[1], vad_filter=True)
+for s in segs: print(f"[{s.start:5.1f}] {s.text.strip()}")
+PY
+  then echo "transcript: $out/transcript.txt"
+  else rm -f "$out/transcript.txt"; echo "transcription failed (model download blocked, or similar); continuing without it"
+  fi
+else
+  echo "faster-whisper is not installed; skipping the transcript (pip install faster-whisper)"
+fi
+echo "done: $out"
+````
+
+</details>
+
+<details>
+<summary>scripts/validate.mjs</summary>
+
+````javascript
+// node scripts/validate.mjs: checks content/ for consistency. Red is an error (exit 1), yellow a warning.
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, basename } from "node:path";
+import YAML from "yaml";
+
+const KINDS = ["formation", "motion", "run", "pass", "action", "coverage"];
+const errors = [], warns = [];
+const err = (f, m) => errors.push(`${f}: ${m}`);
+const warn = (f, m) => warns.push(`${f}: ${m}`);
+
+function walk(dir) {
+  return readdirSync(dir).flatMap(n => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? walk(p) : p.endsWith(".md") ? [p] : [];
+  });
+}
+function frontmatter(path) {
+  const s = readFileSync(path, "utf8");
+  const m = s.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!m) { err(path, "missing frontmatter"); return [null, ""]; }
+  try { return [YAML.parse(m[1]), m[2]]; } catch (e) { err(path, `YAML: ${e.message}`); return [null, ""]; }
+}
+const headings = body => [...body.matchAll(/^## (.+)$/gm)].map(m => m[1].trim());
+
+// --- parts ---
+const components = {}; // kind -> Set(slug)
+for (const k of KINDS) components[k] = new Set();
+for (const p of walk("content/components")) {
+  const [fm, body] = frontmatter(p); if (!fm) continue;
+  const kind = p.split("/")[2], slug = basename(p, ".md");
+  if (!KINDS.includes(kind)) err(p, `unknown kind directory ${kind}`);
+  if (fm.kind !== kind) err(p, `kind: ${fm.kind} does not match the directory ${kind}`);
+  for (const k of ["title", "title_ja"]) if (!fm[k]) err(p, `missing ${k}`);
+  const h = headings(body);
+  for (const need of ["何か", "見分け方"]) if (!h.includes(need)) err(p, `missing heading "${need}"`);
+  components[kind].add(slug);
+}
+// variant_of is checked after every part is known
+for (const p of walk("content/components")) {
+  const [fm] = frontmatter(p); if (!fm?.variant_of) continue;
+  const kind = p.split("/")[2];
+  if (!components[kind].has(fm.variant_of)) err(p, `variant_of: ${fm.variant_of} does not exist under ${kind}`);
+}
+
+// --- plays ---
+const slugs = new Set();
+for (const p of walk("content/plays")) {
+  const [fm, body] = frontmatter(p); if (!fm) continue;
+  const slug = basename(p, ".md");
+  if (slugs.has(slug)) err(p, "duplicate slug"); slugs.add(slug);
+
+  for (const k of ["title", "title_ja", "phase", "game", "components", "vs", "video"]) if (fm[k] == null) err(p, `missing ${k}`);
+  if (!["offense", "defense", "kick"].includes(fm.phase)) err(p, `phase: ${fm.phase}`);
+  for (const k of ["season", "away", "home", "level", "offense"]) if (fm.game?.[k] == null) err(p, `missing game.${k}`);
+  if (fm.game?.away === "unknown" || fm.game?.home === "unknown") warn(p, "game has an unknown team");
+
+  // components
+  const comps = fm.components ?? {};
+  if (Object.values(comps).filter(v => v != null).length === 0) err(p, "components is empty");
+  for (const [kind, v] of Object.entries(comps)) {
+    if (v == null) continue;
+    if (!KINDS.includes(kind) || kind === "coverage") { err(p, `components.${kind} is not a valid key`); continue; }
+    for (const s of Array.isArray(v) ? v : [v]) if (!components[kind].has(s)) err(p, `components.${kind}: ${s} does not exist under content/components/${kind}/`);
+  }
+
+  // vs
+  const vs = fm.vs ?? {};
+  if (!vs.coverage) err(p, "vs.coverage is empty (required)");
+  else if (!components.coverage.has(vs.coverage)) err(p, `vs.coverage: ${vs.coverage} does not exist`);
+  if (!["high", "medium", "low"].includes(vs.confidence)) err(p, `vs.confidence: ${vs.confidence}`);
+  if (!vs.evidence || String(vs.evidence).trim().length < 10) err(p, "vs.evidence is missing or too short");
+  if (vs.confidence === "low") warn(p, "vs.confidence is low");
+
+  if (fm.builds_on && !slugs.has(fm.builds_on)) warn(p, `builds_on: ${fm.builds_on} does not exist (yet)`);
+
+  // video
+  for (const k of ["url", "author", "kind"]) if (!fm.video?.[k]) err(p, `missing video.${k}`);
+  if (fm.video?.url && !/^https:\/\/(www\.instagram\.com|x\.com|twitter\.com)\//.test(fm.video.url)) warn(p, `unexpected domain in video.url: ${fm.video.url}`);
+  if (!fm.video?.transcript) warn(p, "no transcript");
+
+  const h = headings(body);
+  for (const need of ["このプレーの何が面白いか", "展開", "守備の読み"]) if (!h.includes(need)) err(p, `missing heading "${need}"`);
+}
+
+for (const w of warns) console.log(`\x1b[33mwarn\x1b[0m ${w}`);
+for (const e of errors) console.log(`\x1b[31merror\x1b[0m ${e}`);
+console.log(`\n${slugs.size} plays, ${Object.values(components).reduce((a, s) => a + s.size, 0)} components: ${errors.length} errors, ${warns.length} warnings`);
+process.exit(errors.length ? 1 : 0);
+````
+
+</details>
+
+<details>
+<summary>scripts/pr-template.md</summary>
+
+````markdown
+## Added
+- `content/plays/<slug>.md`
+- New parts: (delete this line when there are none)
+
+## Title to parts
+| Word in the title | Part | Existing or new |
+| --- | --- | --- |
+
+## vs
+- coverage:
+- confidence:
+- evidence:
+
+## Open questions
+-
+````
+
+</details>
+
+<details>
+<summary>inbox/README.md</summary>
+
+````markdown
+# inbox
+
+Drop a video and its sidecar here, then run `/ingest-play`. Everything here except this file is gitignored.
+
+```
+inbox/
+  bills-rams-bunch-trail.mp4
+  bills-rams-bunch-trail.yaml
+```
+
+The sidecar:
+```yaml
+url: https://www.instagram.com/reel/XXXX/
+author: playdesignerpro
+caption: |
+  (the caption, verbatim; empty when there is none)
+note: |
+  (optional, your own note: "came right after the counter in the first half", and so on)
+```
+````
+
+</details>
+
+<details>
+<summary>package.json and .gitignore</summary>
+
+````json
+{
+  "name": "playbook",
+  "private": true,
+  "type": "module",
+  "scripts": { "validate": "node scripts/validate.mjs" },
+  "dependencies": { "yaml": "2.6.1" }
+}
+````
+
+````
+inbox/*
+!inbox/README.md
+node_modules/
+````
+
+</details>
+
+<details>
+<summary>.github/workflows/ingest.yml (phase 2 stub)</summary>
+
+````yaml
+# Phase 2. Label an issue `ingest` with the video URL and sidecar in its body, and Claude Code opens the PR.
+# Issues cannot carry the video itself, so the first phase runs /ingest-play from a local Claude Code instead.
+name: ingest-play
+on:
+  issues:
+    types: [labeled]
+jobs:
+  ingest:
+    if: github.event.label.name == 'ingest'
+    runs-on: ubuntu-latest
+    permissions: { contents: write, pull-requests: write, issues: write }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y ffmpeg && pip install faster-whisper && npm ci
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Put the video URL and sidecar from issue #${{ github.event.issue.number }} into inbox/, run /ingest-play, and open the PR.
+````
+
+</details>
+
+<details>
+<summary>content/plays/2026-bills-rams-y-short-bunch-trail.md (a play)</summary>
+
+````markdown
+---
+title: Y-Short Bunch Trail
+title_ja: Yショート・バンチ・トレイル
+phase: offense
+
+game:
+  season: 2026
+  away: Bills
+  home: Rams
+  level: nfl
+  offense: Bills
+
+components:
+  formation: bunch
+  motion: y-short
+  pass: trail
+
+vs:
+  coverage: cover-1
+  confidence: medium
+  evidence: 図では NB がバンチの内側に張り付き、SS がバンチ側に寄っている。X 側の CB は単独で正対。文字起こし未取得のため medium
+  front: null
+
+builds_on: null
+
+video:
+  url: https://www.instagram.com/reel/DecbK2ZAxuD/
+  author: playdesignerpro
+  kind: diagram+film
+  transcript: null
+---
+
+## このプレーの何が面白いか
+Y のショートモーションで「バンチを完成させる」と「マンかどうか確認する」を同時にやっている。モーションに DB がついてきた時点で、QB はドラッグ→トレイルの順で読めばいいと分かる。
+
+## 展開
+- Y：ショートモーションでバンチに合流 → スナップ後に逆サイドへ浅く横切る（ドラッグ）
+- F：いったん外へ出てから内へ切り返し、Y の DB の後ろを通る（トレイル）
+- Z：縦に出てコーナー。上の2本が作る空間の上
+- X：逆サイド単独でディグ。最後の選択肢
+- H：ショートモーションで位置を変えてからプロテクション
+
+## 守備の読み
+バンチ側に NB・SS・CB の3人が集まり、それぞれがレシーバーと正対している。深い中央は FS の1枚。X 側の CB は孤立してマン。モーションへの追従は映像で要確認（文字起こしが入れば confidence を上げられる）。
+````
+
+</details>
+
+<details>
+<summary>content/plays/2026-unknown-wisconsin-counter-solid-bluff-h-wheel.md (a play with confidence: low)</summary>
+
+````markdown
+---
+title: Counter Solid Bluff → H Wheel   # キャプションは "Counter Solid Bluff ➡️ H …" で切れている。Wheel は図からの推定
+title_ja: カウンター・ソリッド・ブラフ → Hホイール
+phase: offense
+
+game:
+  season: 2026
+  away: unknown              # 白ジャージ＋黒系ヘルメット。要確認
+  home: Wisconsin
+  level: ncaa
+  offense: Wisconsin
+
+components:
+  run: counter-solid
+  pass: wheel
+  action: [play-action, bluff]
+
+vs:
+  coverage: quarters
+  confidence: low
+  evidence: 図で $ と FS の2枚が深く、Z 側の CB が縦ルートについて走っている（カバー2ならスクワット）。FS がカウンターの絵に前へ出ている。文字起こし未取得
+  front: null
+
+builds_on: null
+
+video:
+  url: https://www.instagram.com/reel/DeO87TLiFxc/
+  author: offensive_guru
+  kind: diagram+film
+  caption: "Wisconsin Badgers Counter Solid Bluff ➡️ H …"
+  transcript: null
+---
+
+## このプレーの何が面白いか
+Counter Solid は OL がプルしないカウンターなので、OL の動きだけ見るとパスプロテクションと区別がつかない。そこに H のブラフ（キックアウトに行くふり）を重ねると、守備のセカンドレベルは完全にランと読む。Quarters のセーフティはランの絵に前へ出る役割を持っているので、その性質をそのまま利用して H のホイールが後ろを抜ける。前の North Texas のプレーと同じ「H ブラフ → ホイール」を、スクリーンではなくカウンターで売っている対比が面白い。
+
+## 展開
+- H：ショートモーション → LOS の裏を右へ走り、E にブロックのふり（ブラフ）→ サイドラインを縦に（ホイール）。ターゲット
+- Y：バックフィールドから右へプルし E をキックアウト（カウンターの絵）
+- RB：カウンターのフェイクを受けてから右フラットへ
+- Z：縦に出てからコーナー。CB と FS を深く連れていく
+- X：左でショートアウト
+- OL：プルなし（ソリッド）
+
+## 守備の読み
+2枚のセーフティが深く、Z 側 CB が縦に乗っている → Quarters 寄り。FS は Y のプルと RB のフェイクに反応して前へ出ており、H の後ろを誰も取れていない。映像の角度がスナップ時の全体を映しておらず、confidence=low。
+````
+
+</details>
+
+<details>
+<summary>content/components/coverage/cover-1.md (a coverage part)</summary>
+
+````markdown
+---
+kind: coverage
+title: Cover 1
+title_ja: カバー1
+aliases: [Man free, マンフリー, 1ハイ・マン]
+---
+
+## 何か
+セーフティ1枚が深い中央に残り、残りの DB・LB がレシーバーをマンツーマンで担当する守備。ブリッツと組み合わせやすい。
+
+## 見分け方
+- セーフティが1枚だけ、ハッシュの中央に深く立つ
+- CB がレシーバーに正対し、内側の目線（アイズ）がレシーバーに向く
+- モーションした選手に DB がついていく（最大の手がかり）
+- ボックス内の人数が多い（7人以上）
+
+Cover 3 との区別：モーションに追従するか、CB がレシーバーを見ているか（Cover 3 は QB を見る）。
+````
+
+</details>
+
+<details>
+<summary>content/components/run/counter-solid.md (a part with variant_of)</summary>
+
+````markdown
+---
+kind: run
+title: Counter Solid
+title_ja: カウンター・ソリッド
+aliases: [Solid]
+variant_of: counter
+---
+
+## 何か
+カウンターの変種。ガードはプルせず OL はそのままブロック（ソリッド）し、バックフィールドの Y/H だけがプルしてエンドをキックアウトする。OL の動きが小さいのでプレーアクションと相性がいい。
+
+## 見分け方
+カウンターの絵なのに OL の誰もプルしていない。プルは TE/H 1人だけ。
+````
+
+</details>
+
+<details>
+<summary>File list</summary>
+
+```
+.claude/skills/ingest-play/SKILL.md
+.github/workflows/ingest.yml
+.gitignore
+CLAUDE.md
+DATA_MODEL.md
+content/components/action/bluff.md
+content/components/action/play-action.md
+content/components/action/reverse.md
+content/components/action/screen-fake.md
+content/components/action/throwback.md
+content/components/coverage/cover-1.md
+content/components/coverage/cover-2.md
+content/components/coverage/quarters.md
+content/components/formation/bunch.md
+content/components/formation/trips-nub.md
+content/components/motion/y-short.md
+content/components/pass/trail.md
+content/components/pass/wheel.md
+content/components/run/counter-solid.md
+content/components/run/counter.md
+content/components/run/gy-counter.md
+content/plays/2026-bills-rams-y-short-bunch-trail.md
+content/plays/2026-delaware-mtsu-gy-counter-reverse-throwback.md
+content/plays/2026-hou-christian-north-texas-trips-nub-h-wheel.md
+content/plays/2026-unknown-wisconsin-counter-solid-bluff-h-wheel.md
+inbox/README.md
+package.json
+scripts/extract.sh
+scripts/pr-template.md
+scripts/validate.mjs
+```
+
+The parts not shown above (bunch, trips-nub, y-short, trail, wheel, counter, gy-counter, reverse, throwback, bluff, play-action, screen-fake, cover-2, quarters) and the other two plays are in the zip. If they have to be restored, the samples above and the table under "What four videos taught" are enough to rewrite them.
+
+</details>
