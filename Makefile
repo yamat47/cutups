@@ -4,7 +4,7 @@ COMPOSE := docker compose
 RUN := $(COMPOSE) run --rm
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev check build fmt ci shell clean
+.PHONY: help install dev check test validate build fmt ci shell clean
 
 help: ## List the targets
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "  %-10s %s\n", $$1, $$2 }'
@@ -17,6 +17,12 @@ dev: ## Start the dev server on http://localhost:4321
 
 check: ## npm run check
 	$(RUN) app npm run check
+
+test: ## npm test
+	$(RUN) app npm test
+
+validate: ## npm run validate
+	$(RUN) app npm run validate
 
 build: ## npm run build
 	$(RUN) app npm run build
