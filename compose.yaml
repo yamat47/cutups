@@ -1,5 +1,8 @@
 services:
   app:
+    # Node is PID 1 in a one-off container and PID 1 gets no default signal
+    # handling, so Ctrl+C would not stop the inbox server. tini forwards it.
+    init: true
     build:
       context: .
       args:
