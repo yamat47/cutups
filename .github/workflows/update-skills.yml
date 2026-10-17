@@ -1,0 +1,19 @@
+name: update skills
+
+# Keeps the agent skills under .claude/skills/ (installed with
+# `gh skill install yamat47/github-toolkit <name>`) at the latest release of
+# their source repository, and opens one pull request with whatever changed.
+
+on:
+  schedule:
+    - cron: "0 0 1 * *" # monthly, like Dependabot
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  update:
+    permissions:
+      contents: write # required to push the update branch
+      pull-requests: write # required to open the pull request
+    uses: yamat47/github-toolkit/.github/workflows/update-skills.yml@v1.10.0
