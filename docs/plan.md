@@ -57,7 +57,7 @@ Two things differ in Claude Code on the web: pull requests are opened with the G
 - TypeScript everywhere, `scripts/` included. Node 22 runs `.ts` files with type stripping, so the scripts have no build step. Type stripping wants the `.ts` extension on relative imports and accepts no enums or parameter properties. `tsconfig.json` extends `astro/tsconfigs/strict`.
 - The content schema is written once, as zod in `src/content/schema.ts`, with `z` imported from `astro/zod` so that it runs outside Astro too. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
 - Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
-- Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
+- Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler; this is off by default and `.oxfmtrc.json` turns it on with `astro: true`. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
 - oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging.
 - CI is one workflow, `.github/workflows/ci.yml`, with one job named `check`: `npm ci`, then `npm run check` (astro check, oxlint, oxfmt --check), `npm test`, `npm run validate`, `npm run build`. `check` is the required check in infra-github. Actions are pinned by SHA with the version in a comment, following `github-actions-workflows`.
 - The phase-2 `ingest.yml` stub is not committed. It would fire on the issue label and fail, since nothing hands it the video or an API key. It stays in the draft below as a memo.
@@ -114,7 +114,7 @@ The plays processed with the draft and the result. The files went with the zip; 
 
 The order is a guess and will change. Each step is one PR that is green on its own, and the PR that completes a step ticks its box. A fresh session takes the first unticked step and nothing else.
 
-- [ ] 1. Toolchain
+- [x] 1. Toolchain
 - [ ] 2. Schema, validate and tests
 - [ ] 3. infra-github: default branch and required check
 - [ ] 4. Ingestion: the skill and extract.sh
@@ -607,27 +607,6 @@ caption: |
 note: |
   (optional, your own note: "came right after the counter in the first half", and so on)
 ```
-````
-
-</details>
-
-<details>
-<summary>package.json and .gitignore</summary>
-
-````json
-{
-  "name": "playbook",
-  "private": true,
-  "type": "module",
-  "scripts": { "validate": "node scripts/validate.mjs" },
-  "dependencies": { "yaml": "2.6.1" }
-}
-````
-
-````
-inbox/*
-!inbox/README.md
-node_modules/
 ````
 
 </details>
