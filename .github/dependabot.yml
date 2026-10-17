@@ -20,3 +20,13 @@ updates:
       # All package bumps bundled into a single PR.
       npm:
         patterns: ["*"]
+    ignore:
+      # Majors of typescript are bumped by hand, together with @astrojs/check.
+      #
+      # typescript must stay inside the peer range of @astrojs/check, which
+      # `astro check` runs on; a major alone fails `npm ci`.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # @types/node tracks the Node major in .node-version; bump it by hand with it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
