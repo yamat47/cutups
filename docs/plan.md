@@ -1,10 +1,21 @@
 # Plan
 
-This is a working log, not a specification. The project moves by trial and error with Claude Code: what was decided, what was dropped, what is still open. Rewrite it as things change.
+This is a working log, not a specification. The project moves by trial and error with Claude Code: what was decided, what was dropped, what is still open. Rewrite it as things change. It is also the hand-over between sessions, which start with no memory of each other; "How a session starts" below says how to pick up the work from this file alone.
 
 ## What this is
 
 A catalog of football play examples. The source material is videos on Instagram and X that diagram one play from one game (playdesignerpro, offensive_guru and similar accounts). Each play is organized by its parts: formation, motion, run scheme, pass concept, action, and the defense the opponent showed. The readers are Japanese coaches and players who come here when they want to add a play. Nothing is translated, but tags and commentary are written in Japanese. Collection is not automated: the author (yamat47) picks the videos and hands them over with their captions.
+
+## How a session starts
+
+1. Read `CLAUDE.md` and this file in full. The draft at the end is reference material; read the part of it that the current step points to.
+2. Take the first unticked step under "Next". Confirm its state against the repository before starting: `git log --oneline -20`, the file tree, and the open pull requests, since a step may be half done on a branch. A step that is done but unticked is ticked in the next PR.
+3. When the step raises a question this file does not answer, ask the author with `/grill-me` before writing code, and record the answer under "Decided so far" in the same PR.
+4. Do that step and nothing else. A problem found outside the step is written under "Still open", not fixed.
+5. Before opening the PR, run what CI runs, as far as the scripts exist by then: `npm run check`, `npm test`, `npm run validate`, `npm run build`.
+6. Open the PR with `/create-pr`. The same PR ticks the step here, adds what was learned to "Decided so far" or "Tried and dropped", and deletes from the draft at the end every file the PR made real.
+
+Two things differ in Claude Code on the web: pull requests are opened with the GitHub tools, not `gh`, and the Whisper model hosts are blocked, so ingestion (step 5 and after) runs in a local Claude Code.
 
 ## Decided so far
 
@@ -40,11 +51,11 @@ A catalog of football play examples. The source material is videos on Instagram 
 
 ### Code
 
-- The draft (playbook-v0.4.zip, in the details at the end) is reference material. The code is written fresh under the rules below, and only the content files are moved from the zip as they are.
+- The draft (playbook-v0.4.zip, in the details at the end) is reference material. The zip itself is gone. The code is written fresh under the rules below, and the content is collected again from zero, one video at a time through `/ingest-play`.
 - One package at the repository root: `content/` and `scripts/` at the root, the Astro site in `src/`, one `package.json`.
 - Astro 7, which runs on Vite 8 and Rolldown and needs Node 22.22.0 or newer. `.node-version` pins 22.22.0, `engines` in `package.json` says the same, and CI reads the file.
-- TypeScript everywhere, `scripts/` included. Node 22 runs `.ts` files with type stripping, so the scripts have no build step. `tsconfig.json` extends `astro/tsconfigs/strict`.
-- The content schema is written once, as zod in `src/content/schema.ts`. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
+- TypeScript everywhere, `scripts/` included. Node 22 runs `.ts` files with type stripping, so the scripts have no build step. Type stripping wants the `.ts` extension on relative imports and accepts no enums or parameter properties. `tsconfig.json` extends `astro/tsconfigs/strict`.
+- The content schema is written once, as zod in `src/content/schema.ts`, with `z` imported from `astro/zod` so that it runs outside Astro too. `src/content.config.ts` hands it to the collections and `scripts/validate.ts` imports it. A new field is added in one place.
 - Tests are vitest, and only for logic: the relation derivation in `src/lib/relations.ts` and the rules in validate, each run against small fixtures. Test names state the input and the outcome. Pages and markup are not tested; `astro build` in CI is their check.
 - Lint and format are oxlint and oxfmt, the Oxc toolchain that Astro 7 and Vite 8 are built on. oxfmt 0.73 (2026-10-13) formats `.astro` files through `prettier-plugin-astro` and the Astro 7 compiler. oxlint reads only the script part of an `.astro` file. Both run over `src/` and `scripts/` and ignore `content/` and `docs/`: the content's correctness is validate's job, and a formatter would damage the Japanese prose and the YAML comments that mark inferences.
 - oxfmt is still a 0.x release, so every dependency is pinned to an exact version. `.github/dependabot.yml` gets an `npm` entry, monthly and grouped into one PR, and the bumps are read with `review-dependency-bump` before merging.
@@ -74,7 +85,7 @@ A catalog of football play examples. The source material is videos on Instagram 
 
 ## What four videos taught
 
-The plays processed so far and the result.
+The plays processed with the draft and the result. The files went with the zip; the lessons stay, and the four videos are the natural candidates for the first ingestions (step 5), since their URLs are known and the result can be checked against this table.
 
 | Play | Author | Parts | vs |
 | --- | --- | --- | --- |
@@ -101,15 +112,62 @@ The plays processed so far and the result.
 
 ## Next
 
-The order is a guess and will change. Each item is one PR that is green on its own.
+The order is a guess and will change. Each step is one PR that is green on its own, and the PR that completes a step ticks its box. A fresh session takes the first unticked step and nothing else.
 
-1. The skeleton: `package.json` with pinned versions, `.node-version`, the minimal Astro 7 configuration, `src/content/schema.ts` and `src/content.config.ts`, `scripts/validate.ts`, vitest, oxlint and oxfmt, `ci.yml`, `CLAUDE.md`, `DATA_MODEL.md`, `.gitignore`, `inbox/README.md`, and the `npm` entry in `dependabot.yml`. With `content/` empty, validate ends with `0 plays, 0 components: 0 errors, 0 warnings`.
-2. In infra-github: remove `manage_default_branch = false` from the `cutups` entry and put `check` into `required_checks`.
-3. The content: `content/` from playbook-v0.4.zip as it is. The author hands the zip to the Claude Code session or commits the files locally. validate must end with `4 plays, 16 components: 0 errors, 7 warnings`, the same count as the draft.
-4. The ingestion: `.claude/skills/ingest-play/` with its PR template, and `scripts/extract.sh`.
-5. The site: the play list, a play page (embed, part chips, vs), a part page, a kind page, with `src/lib/relations.ts` and its tests.
-6. Publishing: `deploy.yml`, and `pages` with the cname in infra-github.
-7. Five to ten more videos to grow the part vocabulary and the coverage recognition cues. Whatever gets corrected in review goes back into the skill.
+- [ ] 1. Toolchain
+- [ ] 2. Schema, validate and tests
+- [ ] 3. infra-github: default branch and required check
+- [ ] 4. Ingestion: the skill and extract.sh
+- [ ] 5. The first plays
+- [ ] 6. The site
+- [ ] 7. Publishing
+- [ ] 8. Growing the catalog
+
+### 1. Toolchain
+
+The PR adds `package.json` (name `cutups`, `private`, `type: module`, every version exact), `package-lock.json`, `.node-version` with `22.22.0`, `tsconfig.json` extending `astro/tsconfigs/strict`, `astro.config.mjs` with `site: "https://cutups.yamat47.me"`, `src/pages/index.astro` with a placeholder heading, `src/styles/global.css` with the custom properties, `.oxlintrc.json` and `.oxfmtrc.json` that ignore `content/`, `docs/`, `dist/` and `.claude/`, `.gitignore` (`node_modules/`, `dist/`, `.astro/`, `inbox/*` with `!inbox/README.md`), `.github/workflows/ci.yml` with the one job `check`, and the `npm` entry in `.github/dependabot.yml` (monthly, one group). The scripts in `package.json` are `dev`, `build`, `check` (`astro check && oxlint src scripts && oxfmt --check`) and `fmt` (`oxfmt`). `ci.yml` runs `npm ci`, `npm run check`, `npm run build`. Dependencies are the latest at the time; on 2026-10-17 they were astro 7.4.0, oxlint 1.88.0, oxfmt 0.73.0 (with `@astrojs/compiler-rs`, its optional peer for `.astro`), plus `@astrojs/check` and `typescript`, which `astro check` needs.
+
+The step is done when the PR's `check` job is green and `npm run build` writes `dist/index.html`.
+
+### 2. Schema, validate and tests
+
+The PR adds `src/content/schema.ts` (the zod schemas for a play and a part, with the fields from `DATA_MODEL.md`), `src/content.config.ts` (collections `plays` and `components` over `content/plays` and `content/components` through the glob loader), `src/lib/validate.ts` (the cross-file rules as pure functions over parsed objects), `scripts/validate.ts` (reads the files, runs the schema and the rules, prints warnings in yellow and errors in red, exits 1 on an error, and ends with the line `N plays, M components: E errors, W warnings`), `src/lib/validate.test.ts`, `vitest.config.ts`, the `test` (`vitest run`) and `validate` (`node scripts/validate.ts`) scripts, both added to `ci.yml`, a `.gitkeep` in `content/plays/` and in each `content/components/{kind}/`, and `DATA_MODEL.md` at the root, rewritten from the draft with the paths of this plan. `CLAUDE.md` gets its entry points (`npm run validate`, `npm run check`).
+
+The rules to test, each with a fixture: a referenced part that does not exist is an error, `variant_of` pointing outside its kind is an error, a missing body heading is an error, an empty `components` is an error, `confidence: low` is a warning, a `builds_on` that does not exist yet is a warning, `game.away: unknown` is a warning, a `video.url` outside instagram.com, x.com and twitter.com is a warning.
+
+The step is done when `npm run validate` on the empty tree ends with `0 plays, 0 components: 0 errors, 0 warnings`, `npm test` passes, and `check` runs both.
+
+### 3. infra-github: default branch and required check
+
+In the infra-github repository, not this one: remove `manage_default_branch = false` from the `cutups` entry and set `required_checks` to `["check"]`. The author does this; a session here can only remind. Ticked when both are merged there.
+
+### 4. Ingestion: the skill and extract.sh
+
+The PR adds `.claude/skills/ingest-play/SKILL.md` (the eight steps of the draft, with `npm run validate` in place of the old command and the template path below), `.claude/skills/ingest-play/pr-template.md`, `scripts/extract.sh` as in the draft, and `inbox/README.md` as in the draft. The skill reads the existing parts before creating one, never commits video files, and never changes an existing part's definition in passing.
+
+The step is done when `bash scripts/extract.sh inbox/test.mp4` writes `sheet.jpg`, `diagram_1.png` to `diagram_3.png` and `audio.wav` for a synthetic video made with `ffmpeg -f lavfi -i testsrc=duration=12:size=1180x2556:rate=30 -f lavfi -i sine=frequency=440:duration=12 -pix_fmt yuv420p inbox/test.mp4`, and `python3 .claude/skills/skill-creator/scripts/quick_validate.py .claude/skills/ingest-play` passes.
+
+### 5. The first plays
+
+The author hands over videos one at a time, each with its sidecar, and runs `/ingest-play` in a local Claude Code. One play is one branch is one PR, and the review is the curation. The four videos under "What four videos taught" come first: their URLs are known, and the parts and `vs` in the table are the expected result. Whatever the review corrects goes back into the skill or the part's 「見分け方」 in the same PR.
+
+The step is ticked when two plays are on `main`, so that the site in step 6 has a shared part to show. Ingestion continues through every later step.
+
+### 6. The site
+
+The PR adds `src/lib/relations.ts` (the derived views of `DATA_MODEL.md`: the plays of a part, same picture, same scheme with `variant_of` families as one, plays against a coverage, the reverse of `builds_on`), `src/lib/relations.test.ts`, `src/layouts/Base.astro`, `src/components/Chip.astro`, `PlayCard.astro` and `Embed.astro` (the Instagram and X blockquotes from the data model), and the pages `src/pages/index.astro` (the play list), `src/pages/plays/[slug].astro`, `src/pages/[kind]/index.astro` and `src/pages/[kind]/[slug].astro`. It also installs `typescript-idioms` from github-toolkit (`gh skill install yamat47/github-toolkit typescript-idioms --agent claude-code --scope project`) and reads it first.
+
+The step is done when `npm run build` writes a page for every play and every part, the chips on a play page link to `/{kind}/{slug}/`, and `/coverage/{slug}/` lists the plays whose `vs.coverage` is that slug.
+
+### 7. Publishing
+
+The PR adds `.github/workflows/deploy.yml`: on push to `main`, build, then `actions/upload-pages-artifact` and `actions/deploy-pages`, with `pages: write` and `id-token: write` on the deploy job and every action pinned by SHA. The author adds `pages` with `cname = "cutups.yamat47.me"` to the `cutups` entry in infra-github and the DNS record.
+
+The step is done when `https://cutups.yamat47.me/` serves the play list.
+
+### 8. Growing the catalog
+
+Not one PR. Five to ten more videos to grow the part vocabulary and the coverage recognition cues, then `frontend-design` from github-toolkit for the look, then the items under "Still open" as the content makes them concrete. This step is never ticked.
 
 ## How the work goes
 
@@ -119,7 +177,7 @@ The order is a guess and will change. Each item is one PR that is green on its o
 
 ## The draft (playbook-v0.4.zip)
 
-The reference the code is rewritten from. The content files are moved from the zip as they are. `CLAUDE.md`, `DATA_MODEL.md`, the skill and the scripts are rewritten under the Code rules above, and the copies here show what the draft did. When the zip is not at hand, the content can be restored from here and from the table under "What four videos taught".
+The reference the code is rewritten from. The zip is gone, so these copies are all that is left of it. `CLAUDE.md`, `DATA_MODEL.md`, the skill and the scripts are rewritten under the Code rules above, and the copies show what the draft did. The play and part files show the shape a new play or part takes; they are not restored as content. When a PR makes one of these files real, it deletes the copy here.
 
 <details>
 <summary>CLAUDE.md</summary>
