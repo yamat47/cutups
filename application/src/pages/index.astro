@@ -1,15 +1,70 @@
 ---
-import Filter from "../components/Filter.astro";
-import PlayItem from "../components/PlayItem.astro";
+// Shelves, one under another: the newest plays first, then one shelf per tag, the tags
+// with the most plays first. The first few are drawn with the page and the rest are
+// added as the reader nears the end, so the page keeps going without loading every
+// video at once.
+import Row from "../components/Row.astro";
 import Base from "../layouts/Base.astro";
 import { loadCatalog } from "../lib/catalog.ts";
+import { partHref } from "../lib/hrefs.ts";
+import { playsWithFamily } from "../lib/relations.ts";
 
 const catalog = await loadCatalog();
+const FIRST = 3;
+
+const shelves = [
+  { heading: "Latest", plays: catalog.plays, kind: undefined, href: undefined },
+  ...catalog.parts
+    .map((part) => ({
+      heading: part.data.title,
+      plays: playsWithFamily(catalog.plays, catalog.parts, part),
+      kind: part.kind,
+      href: partHref(part),
+    }))
+    .filter(({ plays }) => plays.length > 0)
+    // Stable, so tags with as many plays keep the catalog's order: by kind, then title.
+    .toSorted((a, b) => b.plays.length - a.plays.length),
+];
 ---
 
 <Base>
-  <Filter catalog={catalog} />
-  {catalog.plays.map((play) => (
-    <PlayItem play={play} catalog={catalog} />
+  {shelves.slice(0, FIRST).map((shelf) => (
+    <Row {...shelf} />
   ))}
+  {shelves.slice(FIRST).map((shelf) => (
+    <template data-shelf>
+      <Row {...shelf} />
+    </template>
+  ))}
+  <div class="more" aria-hidden="true"></div>
 </Base>
+
+<script>
+  const more = document.querySelector<HTMLElement>(".more");
+  const waiting = [...document.querySelectorAll<HTMLTemplateElement>("template[data-shelf]")];
+  if (more && waiting.length > 0) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        const next = waiting.shift();
+        if (next) more.before(next.content.cloneNode(true));
+        if (waiting.length === 0) {
+          observer.disconnect();
+          more.remove();
+        } else {
+          // The sentinel may still be in view after one shelf; look again.
+          observer.unobserve(more);
+          observer.observe(more);
+        }
+      },
+      { rootMargin: "0px 0px 800px 0px" },
+    );
+    observer.observe(more);
+  }
+</script>
+
+<style>
+  .more {
+    height: 1px;
+  }
+</style>

@@ -1,13 +1,11 @@
 ---
-// A tag's page is the feed filtered by it. A part's variants count as the part, so
-// Counter lists the GY Counter plays too.
+// A tag's page: every play with the part or one of its variants, two to a row.
 import Chip from "../../components/Chip.astro";
-import Filter from "../../components/Filter.astro";
-import PlayItem from "../../components/PlayItem.astro";
+import PlayCard from "../../components/PlayCard.astro";
 import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Part } from "../../lib/catalog.ts";
 import { KIND_LABEL } from "../../lib/labels.ts";
-import { playsWithPart, variantsOf } from "../../lib/relations.ts";
+import { playsWithFamily, variantsOf } from "../../lib/relations.ts";
 
 export async function getStaticPaths() {
   const catalog = await loadCatalog();
@@ -27,19 +25,15 @@ const { kind, data } = part;
 
 const parent = data.variant_of ? catalog.part({ kind, slug: data.variant_of }) : null;
 const variants = variantsOf(catalog.parts, part);
-const family = new Set(
-  [part, ...variants].flatMap((member) => playsWithPart(catalog.plays, member)),
-);
-const plays = catalog.plays.filter((play) => family.has(play));
+const plays = playsWithFamily(catalog.plays, catalog.parts, part);
 ---
 
 <Base title={data.title}>
-  <Filter catalog={catalog} current={part} />
-
   <section class="tag" data-kind={kind}>
     <p class="kind">{KIND_LABEL[kind]}</p>
     <h1 class="name">{data.title}</h1>
-    {data.aliases.length > 0 && <p class="muted">Also called {data.aliases.join(", ")}</p>}
+    <p class="meta">{plays.length === 1 ? "1 play" : `${plays.length} plays`}</p>
+    {data.aliases.length > 0 && <p class="meta">Also called {data.aliases.join(", ")}</p>}
     {(parent || variants.length > 0) && (
       <div class="rail">
         {parent && <Chip part={parent} />}
@@ -48,33 +42,42 @@ const plays = catalog.plays.filter((play) => family.has(play));
         ))}
       </div>
     )}
-    <p class="muted">{plays.length === 1 ? "1 play" : `${plays.length} plays`}</p>
   </section>
 
-  {plays.map((play) => (
-    <PlayItem play={play} catalog={catalog} current={part} />
-  ))}
+  <div class="grid">
+    {plays.map((play) => (
+      <PlayCard play={play} />
+    ))}
+  </div>
 </Base>
 
 <style>
   .tag {
-    padding: var(--space-4) 0 var(--space-3);
-    border-bottom: 1px solid var(--color-border);
+    padding-top: 1.5rem;
   }
   .kind {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: 0.6875rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
     color: var(--kind);
   }
   h1 {
     margin: 0;
-    font-size: 2.25rem;
+    font-size: 2.5rem;
   }
-  .tag .muted {
-    margin: var(--space-1) 0 0;
+  .meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-muted);
   }
   .rail {
-    margin-top: var(--space-3);
+    margin-top: 0.75rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 0.75rem;
+    margin-top: 1.5rem;
   }
 </style>

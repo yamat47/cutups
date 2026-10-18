@@ -1,10 +1,14 @@
 ---
-// The platform's official embed, built from the URL alone (DATA_MODEL.md). Instagram's
-// own embed.js swaps a blockquote for an iframe once it runs, so the page collapses and
-// then jumps while it loads. The site opens Instagram's /embed/ page in an iframe of its
-// own instead, sized before it loads, with a skeleton behind it until Instagram says it
-// has drawn. A host the site has no embed for falls back to a plain link; validate warns
-// about such a URL.
+// The platform's official embed, built from the URL alone (DATA_MODEL.md).
+//
+// Instagram's embed.js swaps a blockquote for an iframe once it runs, so the page
+// collapses and then jumps while it loads. The site frames Instagram's /embed/ page
+// itself instead, sized before it loads, with a skeleton behind it until Instagram says
+// it has drawn. That page is a 54px header, the post at 4:5, then 154px of likes and a
+// comment box (measured from 200 to 540px wide on three posts), so the frame shows the
+// post alone and crops the rest; the card around it carries the author.
+//
+// A host the site has no embed for falls back to a plain link; validate warns about it.
 import { platformOf } from "../content/schema.ts";
 
 interface Props {
@@ -35,53 +39,54 @@ const code = platform === "instagram" ? new URL(url).pathname.split("/").filter(
       <script is:inline async src="https://platform.twitter.com/widgets.js" charset="utf-8" />
     </>
   ) : (
-    <p>
-      <a href={url}>Watch the video</a>
-    </p>
+    <a class="fallback" href={url}>
+      Watch the video
+    </a>
   )}
 </div>
 
 <script>
   // Instagram's embed page posts its state to the page that frames it: LOADING, then
-  // MEASURE with its height, then MOUNTED once it has drawn. The height only confirms
-  // the reserved box; MOUNTED takes the skeleton away. A frame that never says so is
-  // shown when it finishes loading.
-  const frames = () => [...document.querySelectorAll<HTMLIFrameElement>(".embed iframe")];
+  // MEASURE, then MOUNTED once it has drawn. MOUNTED takes the skeleton away; a frame
+  // that never says so is shown when it finishes loading. Frames the feed adds later, as
+  // it scrolls, are matched when their messages arrive.
   const show = (frame: HTMLIFrameElement) => frame.closest(".frame")?.classList.add("ready");
 
   window.addEventListener("message", (event) => {
     if (event.origin !== "https://www.instagram.com" || typeof event.data !== "string") return;
-    let message: { type?: string; details?: { height?: number } };
+    let message: { type?: string };
     try {
       message = JSON.parse(event.data);
     } catch {
       return;
     }
-    const frame = frames().find((candidate) => candidate.contentWindow === event.source);
-    if (!frame) return;
-    const box = frame.closest<HTMLElement>(".frame");
-    if (message.type === "MEASURE" && message.details?.height && box) {
-      box.style.height = `${message.details.height}px`;
+    if (message.type !== "MOUNTED") return;
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>(".embed iframe")) {
+      if (frame.contentWindow === event.source) show(frame);
     }
-    if (message.type === "MOUNTED") show(frame);
   });
 
-  for (const frame of frames()) {
-    frame.addEventListener("load", () => setTimeout(() => show(frame), 1500), { once: true });
-  }
+  document.addEventListener(
+    "load",
+    (event) => {
+      const frame = event.target;
+      if (frame instanceof HTMLIFrameElement && frame.closest(".embed")) {
+        setTimeout(() => show(frame), 1500);
+      }
+    },
+    true,
+  );
 </script>
 
 <style>
   .embed {
     container-type: inline-size;
   }
-  /* Instagram's embed is 1.25 times its width plus 208px tall for every post measured
-     (328px wide is 618px, 540px is 883px), so the box is that size from the start. */
   .frame {
     position: relative;
-    height: calc(100cqi * 1.25 + 208px);
-    border-radius: 8px;
+    height: calc(100cqi * 1.25);
     overflow: hidden;
+    border-radius: 10px;
     background: var(--color-surface);
   }
   .frame::before {
@@ -91,20 +96,21 @@ const code = platform === "instagram" ? new URL(url).pathname.split("/").filter(
     background: linear-gradient(
       100deg,
       transparent 30%,
-      color-mix(in srgb, var(--color-bg) 60%, transparent) 50%,
+      color-mix(in srgb, var(--color-bg) 55%, transparent) 50%,
       transparent 70%
     );
     background-size: 250% 100%;
     animation: shimmer 1.4s linear infinite;
   }
   .frame iframe {
-    position: relative;
-    display: block;
+    position: absolute;
+    top: -54px;
+    left: 0;
     width: 100%;
-    height: 100%;
+    height: calc(100cqi * 1.25 + 208px);
     border: 0;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.25s;
   }
   .frame.ready::before {
     display: none;
@@ -128,7 +134,13 @@ const code = platform === "instagram" ? new URL(url).pathname.split("/").filter(
       transition: none;
     }
   }
-  .embed p {
-    margin: 0;
+  .fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4 / 5;
+    border-radius: 10px;
+    background: var(--color-surface);
+    font-size: var(--text-sm);
   }
 </style>

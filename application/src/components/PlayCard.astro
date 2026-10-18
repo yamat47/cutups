@@ -1,0 +1,46 @@
+---
+// One play as a card: the video itself, then its name, game and author.
+import type { Play } from "../lib/catalog.ts";
+import { playHref } from "../lib/hrefs.ts";
+import { gameLabel } from "../lib/labels.ts";
+import Embed from "./Embed.astro";
+
+interface Props {
+  play: Play;
+}
+
+const { play } = Astro.props;
+const { data } = play;
+---
+
+<article class="card">
+  <Embed url={data.video.url} title={data.title} />
+  <a class="name" href={playHref(play.slug)}>
+    {data.title}
+  </a>
+  <p class="meta">
+    {gameLabel(data.game)}
+    <br />@{data.video.author}
+  </p>
+</article>
+
+<style>
+  .card {
+    min-width: 0;
+  }
+  .name {
+    display: -webkit-box;
+    margin-top: 0.625rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 1.125rem;
+    text-decoration: none;
+  }
+  .meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color-muted);
+  }
+</style>

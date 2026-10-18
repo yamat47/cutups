@@ -24,13 +24,15 @@ const derived = derivedPlays(catalog.plays, catalog.parts, play);
 ---
 
 <Base title={data.title}>
+  <div class="video">
+    <Embed url={data.video.url} title={data.title} />
+  </div>
+
   <h1 class="name">{data.title}</h1>
-  <p class="meta muted">
+  <p class="meta byline">
     <span>{gameLabel(data.game)}</span>
     <a href={data.video.url}>@{data.video.author}</a>
   </p>
-
-  <Embed url={data.video.url} title={data.title} />
 
   <div class="rail">
     {partsOf(data).map((ref) => (
@@ -39,7 +41,7 @@ const derived = derivedPlays(catalog.plays, catalog.parts, play);
   </div>
 
   {buildsOn && (
-    <p class="muted">
+    <p class="meta">
       Built on <a href={playHref(buildsOn.slug)}>{buildsOn.data.title}</a>
     </p>
   )}
@@ -50,10 +52,10 @@ const derived = derivedPlays(catalog.plays, catalog.parts, play);
       <ul>
         {derived.map((other) => (
           <li>
-            <a class="name" href={playHref(other.slug)}>
-              {other.data.title}
+            <a href={playHref(other.slug)}>
+              <span class="name">{other.data.title}</span>
+              <span class="meta">{gameLabel(other.data.game)}</span>
             </a>
-            <span class="muted">{gameLabel(other.data.game)}</span>
           </li>
         ))}
       </ul>
@@ -62,43 +64,52 @@ const derived = derivedPlays(catalog.plays, catalog.parts, play);
 </Base>
 
 <style>
+  .video {
+    margin: 1rem calc(-1 * var(--gutter)) 0;
+  }
+  .video :global(.frame) {
+    border-radius: 0;
+  }
   h1 {
-    margin: var(--space-4) 0 0;
+    margin: 1rem 0 0;
     font-size: 2.25rem;
   }
   .meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+  }
+  .byline {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 var(--space-3);
-    margin: var(--space-1) 0 var(--space-3);
+    gap: 0 0.75rem;
   }
   .rail {
-    margin-top: var(--space-3);
+    margin-top: 1rem;
   }
   section {
-    margin-top: var(--space-5);
+    margin-top: 2.5rem;
   }
   h2 {
-    margin: 0 0 var(--space-2);
-    font-size: var(--text-sm);
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     color: var(--color-muted);
   }
   ul {
     margin: 0;
     padding: 0;
     list-style: none;
-    border-top: 1px solid var(--color-border);
   }
-  li {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 3.5rem;
-    padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--color-border);
+  li a {
+    display: block;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--color-border);
+    text-decoration: none;
   }
   li .name {
+    display: block;
     font-size: 1.25rem;
-    text-decoration: none;
   }
 </style>

@@ -144,3 +144,16 @@ export function derivedPlays<T extends PlayEntry>(
   ]);
   return plays.filter((other) => related.has(other.slug));
 }
+
+/**
+ * The plays of a tag: every play that has the part or one of its variants, in the order
+ * of `plays`, so that the Counter shelf has the GY Counter plays too.
+ */
+export function playsWithFamily<T extends PlayEntry>(
+  plays: readonly T[],
+  parts: readonly PartEntry[],
+  part: PartEntry,
+): T[] {
+  const members = [part, ...variantsOf(parts, part)];
+  return plays.filter((play) => members.some((member) => playsWithPart([play], member).length));
+}

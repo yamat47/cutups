@@ -3,6 +3,7 @@ import type { Component, Play } from "../content/schema.ts";
 import {
   buildsOnThis,
   derivedPlays,
+  playsWithFamily,
   familyLookup,
   partsOf,
   playsWithPart,
@@ -219,5 +220,16 @@ describe("derivedPlays", () => {
       play("unrelated", { run: ["split-zone"] }),
     ];
     expect(slugs(derivedPlays(plays, runs, base))).toEqual(["built", "both", "picture"]);
+  });
+});
+
+describe("playsWithFamily", () => {
+  it("counts a variant's plays as the parent's, in feed order, each once", () => {
+    const plays = [
+      play("gy", { run: ["gy-counter"] }),
+      play("zone", { run: ["split-zone"] }),
+      play("both", { run: ["counter", "counter-solid"] }),
+    ];
+    expect(slugs(playsWithFamily(plays, runs, runs[0]!))).toEqual(["gy", "both"]);
   });
 });
