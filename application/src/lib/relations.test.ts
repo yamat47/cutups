@@ -21,11 +21,9 @@ function play(
     slug,
     data: {
       title: slug,
-      title_ja: slug,
       phase: "offense",
       game: { season: 2026, away: "Bills", home: "Rams", level: "nfl", offense: "Bills" },
       components,
-      vs: { coverage: "cover-1", confidence: "low", evidence: "One safety deep.", front: null },
       builds_on: null,
       video: {
         url: "https://www.instagram.com/reel/abc/",
@@ -43,7 +41,7 @@ function part(kind: Component["kind"], slug: string, variant_of: string | null =
   return {
     kind,
     slug,
-    data: { kind, title: slug, title_ja: slug, aliases: [], variant_of },
+    data: { kind, title: slug, aliases: [], variant_of },
   };
 }
 
@@ -77,18 +75,6 @@ describe("playsWithPart", () => {
       play("b", { action: ["boot"] }),
     ];
     expect(slugs(playsWithPart(plays, { kind: "action", slug: "play-action" }))).toEqual(["a"]);
-  });
-
-  it("a coverage finds the plays whose vs showed it, not their components", () => {
-    const plays = [
-      play("a", { pass: ["trail"] }),
-      play(
-        "b",
-        { pass: ["trail"] },
-        { vs: { coverage: "cover-2", confidence: "medium", evidence: "Two deep.", front: null } },
-      ),
-    ];
-    expect(slugs(playsWithPart(plays, { kind: "coverage", slug: "cover-2" }))).toEqual(["b"]);
   });
 
   it("the same slug under another kind does not count", () => {

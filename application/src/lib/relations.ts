@@ -1,6 +1,6 @@
 // The relations of DATA_MODEL.md, derived from shared parts at build time. Nothing
 // here is written by hand in the content except `builds_on`, read in reverse.
-import { PLAY_KINDS, type Component, type Kind, type Play } from "../content/schema.ts";
+import { KINDS, type Component, type Kind, type Play } from "../content/schema.ts";
 
 export interface PlayEntry {
   slug: string;
@@ -16,24 +16,16 @@ export interface PartEntry extends PartRef {
   data: Component;
 }
 
-/** The parts a play is composed of, in the order of PLAY_KINDS. `vs` is not one of them. */
+/** The parts a play is composed of, in the order of KINDS. */
 export function partsOf(play: Play): PartRef[] {
-  return PLAY_KINDS.flatMap((kind) =>
-    (play.components[kind] ?? []).map((slug) => ({ kind, slug })),
-  );
+  return KINDS.flatMap((kind) => (play.components[kind] ?? []).map((slug) => ({ kind, slug })));
 }
 
-/** The coverage the defense showed, as a reference to its part. */
-export function vsOf(play: Play): PartRef {
-  return { kind: "coverage", slug: play.vs.coverage };
-}
-
-/** Every play that has the part; for a coverage, every play whose `vs` showed it. */
+/** Every play that has the part. */
 export function playsWithPart<T extends PlayEntry>(
   plays: readonly T[],
   { kind, slug }: PartRef,
 ): T[] {
-  if (kind === "coverage") return plays.filter((play) => vsOf(play.data).slug === slug);
   return plays.filter((play) => play.data.components[kind]?.includes(slug) ?? false);
 }
 
