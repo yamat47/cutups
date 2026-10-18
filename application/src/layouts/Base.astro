@@ -10,24 +10,42 @@ interface Props {
 }
 
 const { title } = Astro.props;
+// The section the page belongs to: a play is under プレー, a part under its kind.
+const path = Astro.url.pathname;
+const current = (href: string) =>
+  (href === "/" ? path === "/" || path.startsWith("/plays/") : path.startsWith(href))
+    ? "page"
+    : undefined;
 ---
 
 <!doctype html>
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f9fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111a21" media="(prefers-color-scheme: dark)" />
     <title>{title ? `${title} | cutups` : "cutups"}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&display=swap"
+    />
   </head>
   <body>
     <header>
-      <a class="site" href="/">
+      <a class="site name" href="/">
         cutups
       </a>
-      <nav>
-        <a href="/">プレー</a>
+      <nav class="rail" aria-label="一覧">
+        <a href="/" aria-current={current("/")}>
+          プレー
+        </a>
         {KINDS.map((kind) => (
-          <a href={kindHref(kind)}>{KIND_LABEL[kind]}</a>
+          <a href={kindHref(kind)} data-kind={kind} aria-current={current(kindHref(kind))}>
+            {KIND_LABEL[kind]}
+          </a>
         ))}
       </nav>
     </header>
@@ -39,30 +57,28 @@ const { title } = Astro.props;
 
 <style>
   header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-3);
-    padding-bottom: var(--space-3);
-    margin-bottom: var(--space-4);
+    padding-top: max(var(--space-3), env(safe-area-inset-top));
     border-bottom: 1px solid var(--color-border);
   }
   .site {
     font-size: var(--text-lg);
-    font-weight: bold;
     color: var(--color-fg);
     text-decoration: none;
   }
   nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
+    margin-top: var(--space-1);
   }
   nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    font-size: var(--text-sm);
     color: var(--color-muted);
+    text-decoration: none;
   }
-  main {
-    max-width: 48rem;
+  nav a[aria-current] {
+    color: var(--color-fg);
+    font-weight: 700;
+    box-shadow: inset 0 -3px 0 var(--kind, var(--color-fg));
   }
 </style>

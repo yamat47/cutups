@@ -7,8 +7,7 @@ import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Play } from "../../lib/catalog.ts";
 import { playHref } from "../../lib/hrefs.ts";
 import { CONFIDENCE_LABEL, KIND_LABEL, gameLabel } from "../../lib/labels.ts";
-import { PLAY_KINDS } from "../../content/schema.ts";
-import { buildsOnThis, samePicture, sameScheme, vsOf } from "../../lib/relations.ts";
+import { buildsOnThis, partsOf, samePicture, sameScheme, vsOf } from "../../lib/relations.ts";
 
 export async function getStaticPaths() {
   const catalog = await loadCatalog();
@@ -32,47 +31,38 @@ const hasRelations = picture.length + schemes.length + answers.length > 0;
 ---
 
 <Base title={data.title}>
-  <h1>{data.title}</h1>
-  <p class="muted">
-    {data.title_ja} ・ {gameLabel(data.game)} ・ <a href={data.video.url}>@{data.video.author}</a>
-  </p>
-
-  <dl class="facts">
-    {PLAY_KINDS.flatMap((kind) => {
-      const slugs = data.components[kind];
-      if (!slugs) return [];
-      return (
-        <>
-          <dt>{KIND_LABEL[kind]}</dt>
-          <dd>
-            {slugs.map((slug) => (
-              <Chip part={catalog.part({ kind, slug })} />
-            ))}
-          </dd>
-        </>
-      );
-    })}
-    <dt>守備</dt>
-    <dd>
-      <Chip part={catalog.part(vsOf(data))} />
-      <span class="muted">{CONFIDENCE_LABEL[data.vs.confidence]}</span>
-      {data.vs.front && <span class="muted">{data.vs.front}</span>}
-    </dd>
-    {data.builds_on && (
-      <>
-        <dt>踏まえたプレー</dt>
-        <dd>
-          {buildsOn ? (
-            <a href={playHref(buildsOn.slug)}>{buildsOn.data.title}</a>
-          ) : (
-            <span class="muted">{data.builds_on}（未登録）</span>
-          )}
-        </dd>
-      </>
-    )}
-  </dl>
+  <h1 class="name">{data.title}</h1>
+  <ul class="meta">
+    <li>{data.title_ja}</li>
+    <li>{gameLabel(data.game)}</li>
+    <li>
+      <a href={data.video.url}>@{data.video.author}</a>
+    </li>
+  </ul>
 
   <Embed url={data.video.url} />
+
+  <div class="rail" aria-label="パーツと守備">
+    {partsOf(data).map((ref) => (
+      <Chip part={catalog.part(ref)} labeled />
+    ))}
+    <Chip
+      part={catalog.part(vsOf(data))}
+      labeled
+      note={[CONFIDENCE_LABEL[data.vs.confidence], data.vs.front].filter(Boolean).join(" ")}
+    />
+  </div>
+
+  {data.builds_on && (
+    <p class="muted">
+      踏まえたプレー:{" "}
+      {buildsOn ? (
+        <a href={playHref(buildsOn.slug)}>{buildsOn.data.title}</a>
+      ) : (
+        <span>{data.builds_on}（未登録）</span>
+      )}
+    </p>
+  )}
 
   <div class="body">
     <Content />
@@ -94,12 +84,3 @@ const hasRelations = picture.length + schemes.length + answers.length > 0;
     </section>
   )}
 </Base>
-
-<style>
-  h1 {
-    margin-bottom: 0;
-  }
-  h1 + .muted {
-    margin-top: 0;
-  }
-</style>

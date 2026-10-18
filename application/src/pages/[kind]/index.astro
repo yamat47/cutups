@@ -20,20 +20,25 @@ const parts = catalog.parts.filter((part) => part.kind === kind);
 ---
 
 <Base title={KIND_LABEL[kind]}>
-  <h1>{KIND_LABEL[kind]}</h1>
+  <h1 class="heading" data-kind={kind}>
+    {KIND_LABEL[kind]}
+  </h1>
   {parts.length === 0 ? (
     <p>まだありません。</p>
   ) : (
-    <ul>
+    <ul class="parts" data-kind={kind}>
       {parts.map((part) => (
         <li>
-          <a href={partHref(part)}>{part.data.title}</a>
-          <span class="muted">
-            {part.data.title_ja}
-            {part.data.variant_of &&
-              ` ・ ${catalog.part({ kind, slug: part.data.variant_of }).data.title} の変種`}
-            {` ・ ${playsWithPart(catalog.plays, part).length} プレー`}
-          </span>
+          <a class="name" href={partHref(part)}>
+            {part.data.title}
+          </a>
+          <ul class="meta">
+            <li>{part.data.title_ja}</li>
+            {part.data.variant_of && (
+              <li>{catalog.part({ kind, slug: part.data.variant_of }).data.title} の変種</li>
+            )}
+            <li>{playsWithPart(catalog.plays, part).length} プレー</li>
+          </ul>
         </li>
       ))}
     </ul>
@@ -41,15 +46,26 @@ const parts = catalog.parts.filter((part) => part.kind === kind);
 </Base>
 
 <style>
-  ul {
-    padding-left: 0;
+  .heading {
+    margin: var(--space-4) 0 var(--space-2);
+    padding-left: var(--space-2);
+    border-left: 4px solid var(--kind);
+    font-size: var(--text-lg);
+  }
+  .parts {
+    margin: 0;
+    padding: 0;
     list-style: none;
   }
-  li {
-    padding: var(--space-2) 0;
+  .parts > li {
+    padding: var(--space-3) 0;
     border-bottom: 1px solid var(--color-border);
   }
-  .muted {
-    margin-left: var(--space-2);
+  .parts .name {
+    display: inline-block;
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: var(--color-fg);
+    text-decoration: none;
   }
 </style>

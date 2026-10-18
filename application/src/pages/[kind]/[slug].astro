@@ -37,36 +37,32 @@ const familyIsEmpty = plays.length === 0 && variantPlays.every(({ plays }) => pl
 ---
 
 <Base title={data.title}>
-  <p class="muted">
+  <p class="kind" data-kind={kind}>
     <a href={kindHref(kind)}>{KIND_LABEL[kind]}</a>
   </p>
-  <h1>{data.title}</h1>
-  <p class="muted">
-    {data.title_ja}
-    {data.aliases.length > 0 && ` ・ 別名: ${data.aliases.join("、")}`}
-  </p>
+  <h1 class="name">{data.title}</h1>
+  <ul class="meta">
+    <li>{data.title_ja}</li>
+    {data.aliases.length > 0 && <li>別名 {data.aliases.join("、")}</li>}
+  </ul>
 
-  {(parent || variants.length > 0) && (
-    <dl class="facts">
-      {parent && (
-        <>
-          <dt>変種の元</dt>
-          <dd>
-            <Chip part={parent} />
-          </dd>
-        </>
-      )}
-      {variants.length > 0 && (
-        <>
-          <dt>変種</dt>
-          <dd>
-            {variants.map((variant) => (
-              <Chip part={variant} />
-            ))}
-          </dd>
-        </>
-      )}
-    </dl>
+  {parent && (
+    <>
+      <h2>変種の元</h2>
+      <div class="rail">
+        <Chip part={parent} />
+      </div>
+    </>
+  )}
+  {variants.length > 0 && (
+    <>
+      <h2>変種</h2>
+      <div class="rail">
+        {variants.map((variant) => (
+          <Chip part={variant} />
+        ))}
+      </div>
+    </>
   )}
 
   <div class="body">
@@ -93,11 +89,14 @@ const familyIsEmpty = plays.length === 0 && variantPlays.every(({ plays }) => pl
 </Base>
 
 <style>
-  .muted,
-  h1 {
-    margin: 0;
+  .kind {
+    margin: var(--space-4) 0 0;
+    font-size: var(--text-sm);
   }
-  h1 + .muted {
-    margin-bottom: var(--space-3);
+  .kind a {
+    color: var(--kind);
+  }
+  .kind + h1.name {
+    margin-top: 0;
   }
 </style>

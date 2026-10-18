@@ -35,7 +35,17 @@ const platform = platformOf(url);
 </div>
 
 <style>
+  /* The video is the first thing under the name and runs to the screen edges; the
+     platforms' embeds cap their own width on anything wider than a phone. */
   .embed {
-    margin: var(--space-3) 0;
+    margin: var(--space-3) calc(-1 * var(--gutter)) 0;
+  }
+  .embed :global(.instagram-media),
+  .embed :global(.twitter-tweet) {
+    margin: 0 auto !important;
+  }
+  .embed p {
+    margin: 0;
+    padding: 0 var(--gutter);
   }
 </style>

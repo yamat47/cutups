@@ -7,12 +7,22 @@ const catalog = await loadCatalog();
 ---
 
 <Base>
-  <h1>プレー</h1>
+  <h1 class="heading">プレー</h1>
   <p class="muted">
     試合の 1
-    プレーを、フォーメーション・モーション・スキーム・アクションの組み合わせとして並べています。チップから同じパーツを使うプレーへ移れます。
+    プレーを、フォーメーション、モーション、スキーム、アクションの組み合わせとして並べています。チップから同じパーツを使うプレーへ移れます。
   </p>
   {catalog.plays.map((play) => (
     <PlayCard play={play} catalog={catalog} />
   ))}
 </Base>
+
+<style>
+  .heading {
+    margin: var(--space-4) 0 0;
+    font-size: var(--text-lg);
+  }
+  .heading + .muted {
+    margin-top: var(--space-1);
+  }
+</style>

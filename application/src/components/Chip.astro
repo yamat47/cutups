@@ -1,35 +1,78 @@
 ---
-// A part as a link to the page of every play that shares it.
+// A part as a link to the page of every play that shares it. The kind's color marks
+// which kind it is. With `labeled`, the kind's name sits above the part's name, for the
+// row under a play's video where the chips stand without a heading.
 import type { Part } from "../lib/catalog.ts";
 import { partHref } from "../lib/hrefs.ts";
+import { KIND_LABEL } from "../lib/labels.ts";
 
 interface Props {
   part: Part;
+  labeled?: boolean;
+  /** Said after the kind's name, such as how sure the reading of a defense is. */
+  note?: string | undefined;
 }
 
-const { part } = Astro.props;
+const { part, labeled = false, note } = Astro.props;
 ---
 
-<a class="chip" data-kind={part.kind} href={partHref(part)} title={part.data.title_ja}>
-  {part.data.title}
+<a
+  class:list={["chip", { labeled }]}
+  data-kind={part.kind}
+  href={partHref(part)}
+  title={part.data.title_ja}
+>
+  {labeled && (
+    <span class="kind">
+      {KIND_LABEL[part.kind]}
+      {note && <span class="note">{note}</span>}
+    </span>
+  )}
+  <span class="name">{part.data.title}</span>
 </a>
 
 <style>
   .chip {
-    display: inline-block;
-    padding: 0 var(--space-2);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-3) 0 var(--space-2);
     border: 1px solid var(--color-border);
-    border-radius: 999px;
-    font-size: var(--text-sm);
+    border-left: 4px solid var(--kind);
+    border-radius: 6px;
+    background: var(--color-bg);
     color: var(--color-fg);
     text-decoration: none;
     white-space: nowrap;
+    box-sizing: border-box;
   }
-  .chip:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
+  /* The defense a play met, not a part it is built from: drawn apart with a dashed
+     outline. */
   .chip[data-kind="coverage"] {
-    border-style: dashed;
+    border-style: dashed dashed dashed solid;
+  }
+  .chip:active {
+    background: var(--color-surface);
+  }
+  .name {
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+  .labeled {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.125rem;
+    min-height: 3.25rem;
+  }
+  .kind {
+    font-size: var(--text-xs);
+    line-height: 1.2;
+    color: var(--kind);
+  }
+  .note {
+    margin-left: var(--space-1);
+    color: var(--color-muted);
   }
 </style>
