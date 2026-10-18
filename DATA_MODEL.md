@@ -167,12 +167,15 @@ A play page shows its parts and its `vs` as chips. A chip leads to the list of p
 | --------------- | --------------------------------- | ----------------------------------- |
 | playdesignerpro | overlay inside the video          | `game` + `Motion Formation Concept` |
 | offensive_guru  | the caption (truncated on screen) | `Team Formation ➡️ Concept`         |
+| coachcarsonhart | the heading above the diagram     | `Season Team - Concept`, or a sentence (`Miami running Mesh on 3rd Down out of Bunch`); some posts name no play |
 
 For authors who name the play in the caption, the caption text is handed over with the video. When the caption was cut off, the inferred part of `title` is marked in a comment.
 
 ## Reading the diagram
 
 In PlayDesignerPro-style diagrams a bar at the end of a line is a block, an arrow is a route, a zigzag is a motion, and a yellow or orange line is where the ball went. A short bar in the middle of a route is a bluff, a fake block before the route.
+
+coachcarsonhart's diagrams mark the players by role rather than the ball's path: blue for receivers, yellow for TEs and wings, red for the ball carrier and for the linemen the play turns on (the trapping guard, the pullers), black for everyone else. A boxed number is the QB's progression. The defense, when drawn at all, is letters only: red for the secondary, green for linebackers, blue for the line. Several diagrams draw no defense, so `vs` rests on the pre-snap film.
 
 ## Dropped since v0.1
 
