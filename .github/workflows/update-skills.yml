@@ -16,4 +16,6 @@ jobs:
     permissions:
       contents: write # required to push the update branch
       pull-requests: write # required to open the pull request
-    uses: yamat47/github-toolkit/.github/workflows/update-skills.yml@v1.10.0
+    # At @main like the toolkit actions in ci.yml; the skills themselves still move
+    # only when a release changes them.
+    uses: yamat47/github-toolkit/.github/workflows/update-skills.yml@main
