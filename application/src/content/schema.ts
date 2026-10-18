@@ -3,10 +3,8 @@
 // astro/zod rather than astro:content, which only resolves inside Astro.
 import { z } from "astro/zod";
 
-// The kinds a play is composed of. Coverage is a kind of part too, but not a part
-// of a play: the defense the opponent showed goes under `vs`.
-export const PLAY_KINDS = ["formation", "motion", "run", "pass", "action"] as const;
-export const KINDS = [...PLAY_KINDS, "coverage"] as const;
+// The kinds a play is composed of, each a directory under content/components.
+export const KINDS = ["formation", "motion", "run", "pass", "action"] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const CONTENT = {
@@ -30,14 +28,12 @@ const slugs = z
 export const componentSchema = z.strictObject({
   kind: z.enum(KINDS),
   title: z.string().min(1),
-  title_ja: z.string().min(1),
   aliases: z.array(z.string().min(1)).default([]),
   variant_of: slug.nullable().default(null),
 });
 
 export const playSchema = z.strictObject({
   title: z.string().min(1),
-  title_ja: z.string().min(1),
   phase: z.enum(["offense", "defense", "kick"]),
   game: z
     .strictObject({
@@ -52,16 +48,10 @@ export const playSchema = z.strictObject({
       path: ["offense"],
     }),
   components: z
-    .partialRecord(z.enum(PLAY_KINDS), slugs)
+    .partialRecord(z.enum(KINDS), slugs)
     .refine((components) => Object.values(components).some((value) => value !== undefined), {
       message: "components is empty; a play has at least one part",
     }),
-  vs: z.strictObject({
-    coverage: slug,
-    confidence: z.enum(["high", "medium", "low"]),
-    evidence: z.string().trim().min(10, "missing or too short"),
-    front: z.string().nullable().default(null),
-  }),
   builds_on: slug.nullable().default(null),
   video: z.strictObject({
     url: z.url(),

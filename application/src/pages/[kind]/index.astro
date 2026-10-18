@@ -29,10 +29,9 @@ const parts = catalog.parts.filter((part) => part.kind === kind);
         <li>
           <a href={partHref(part)}>{part.data.title}</a>
           <span class="muted">
-            {part.data.title_ja}
             {part.data.variant_of &&
-              ` ・ ${catalog.part({ kind, slug: part.data.variant_of }).data.title} の変種`}
-            {` ・ ${playsWithPart(catalog.plays, part).length} プレー`}
+              `${catalog.part({ kind, slug: part.data.variant_of }).data.title} の変種 ・ `}
+            {`${playsWithPart(catalog.plays, part).length} プレー`}
           </span>
         </li>
       ))}

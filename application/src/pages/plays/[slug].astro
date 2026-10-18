@@ -1,14 +1,13 @@
 ---
-import { render } from "astro:content";
 import Chip from "../../components/Chip.astro";
 import Embed from "../../components/Embed.astro";
 import PlayList from "../../components/PlayList.astro";
 import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Play } from "../../lib/catalog.ts";
 import { playHref } from "../../lib/hrefs.ts";
-import { CONFIDENCE_LABEL, KIND_LABEL, gameLabel } from "../../lib/labels.ts";
-import { PLAY_KINDS } from "../../content/schema.ts";
-import { buildsOnThis, samePicture, sameScheme, vsOf } from "../../lib/relations.ts";
+import { KIND_LABEL, gameLabel } from "../../lib/labels.ts";
+import { KINDS } from "../../content/schema.ts";
+import { buildsOnThis, samePicture, sameScheme } from "../../lib/relations.ts";
 
 export async function getStaticPaths() {
   const catalog = await loadCatalog();
@@ -22,7 +21,6 @@ interface Props {
 
 const { play, catalog } = Astro.props;
 const { data } = play;
-const { Content } = await render(play.entry);
 
 const picture = samePicture(catalog.plays, play);
 const schemes = sameScheme(catalog.plays, catalog.parts, play);
@@ -34,11 +32,11 @@ const hasRelations = picture.length + schemes.length + answers.length > 0;
 <Base title={data.title}>
   <h1>{data.title}</h1>
   <p class="muted">
-    {data.title_ja} ・ {gameLabel(data.game)} ・ <a href={data.video.url}>@{data.video.author}</a>
+    {gameLabel(data.game)} ・ <a href={data.video.url}>@{data.video.author}</a>
   </p>
 
   <dl class="facts">
-    {PLAY_KINDS.flatMap((kind) => {
+    {KINDS.flatMap((kind) => {
       const slugs = data.components[kind];
       if (!slugs) return [];
       return (
@@ -52,12 +50,6 @@ const hasRelations = picture.length + schemes.length + answers.length > 0;
         </>
       );
     })}
-    <dt>守備</dt>
-    <dd>
-      <Chip part={catalog.part(vsOf(data))} />
-      <span class="muted">{CONFIDENCE_LABEL[data.vs.confidence]}</span>
-      {data.vs.front && <span class="muted">{data.vs.front}</span>}
-    </dd>
     {data.builds_on && (
       <>
         <dt>踏まえたプレー</dt>
@@ -73,10 +65,6 @@ const hasRelations = picture.length + schemes.length + answers.length > 0;
   </dl>
 
   <Embed url={data.video.url} />
-
-  <div class="body">
-    <Content />
-  </div>
 
   {hasRelations && (
     <section class="related">

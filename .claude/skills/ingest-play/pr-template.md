@@ -8,12 +8,6 @@
 | Word in the title or caption | Part | Existing or new |
 | --- | --- | --- |
 
-## vs
-
-- coverage:
-- confidence:
-- evidence:
-
 ## Open questions
 
 - (an unknown opponent, a truncated caption, a warning from validate; delete the section when there is none)

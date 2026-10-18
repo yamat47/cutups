@@ -10,7 +10,7 @@ interface Props {
 const { part } = Astro.props;
 ---
 
-<a class="chip" data-kind={part.kind} href={partHref(part)} title={part.data.title_ja}>
+<a class="chip" data-kind={part.kind} href={partHref(part)}>
   {part.data.title}
 </a>
 
@@ -28,8 +28,5 @@ const { part } = Astro.props;
   .chip:hover {
     border-color: var(--color-accent);
     color: var(--color-accent);
-  }
-  .chip[data-kind="coverage"] {
-    border-style: dashed;
   }
 </style>

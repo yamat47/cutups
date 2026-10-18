@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { playSchema, type Component, type Play } from "../content/schema.ts";
-import {
-  COMPONENT_HEADINGS,
-  PLAY_HEADINGS,
-  validate,
-  type Finding,
-  type ParsedComponent,
-  type ParsedPlay,
-} from "./validate.ts";
-
-const bodyWith = (headings: readonly string[]) =>
-  headings.map((heading) => `## ${heading}\n本文。`).join("\n\n");
+import { validate, type Finding, type ParsedComponent, type ParsedPlay } from "./validate.ts";
 
 function component(
   kind: Component["kind"],
@@ -21,23 +11,16 @@ function component(
     file: `content/components/${kind}/${slug}.md`,
     kind,
     slug,
-    data: { kind, title: slug, title_ja: slug, aliases: [], variant_of: null, ...data },
-    body: bodyWith(COMPONENT_HEADINGS),
+    data: { kind, title: slug, aliases: [], variant_of: null, ...data },
+    body: "",
   };
 }
 
 const basePlay: Play = {
   title: "Y-Short Bunch Trail",
-  title_ja: "Yショート・バンチ・トレイル",
   phase: "offense",
   game: { season: 2026, away: "Bills", home: "Rams", level: "nfl", offense: "Bills" },
   components: { formation: ["bunch"], motion: ["y-short"], pass: ["trail"] },
-  vs: {
-    coverage: "cover-1",
-    confidence: "medium",
-    evidence: "The nickel follows the short motion and one safety stays deep.",
-    front: null,
-  },
   builds_on: null,
   video: {
     url: "https://www.instagram.com/reel/DecbK2ZAxuD/",
@@ -48,7 +31,7 @@ const basePlay: Play = {
   },
 };
 
-function play(data: Partial<Play> = {}, body = bodyWith(PLAY_HEADINGS)): ParsedPlay {
+function play(data: Partial<Play> = {}, body = ""): ParsedPlay {
   return {
     file: "content/plays/2026-bills-rams-y-short-bunch-trail.md",
     slug: "2026-bills-rams-y-short-bunch-trail",
@@ -61,7 +44,6 @@ const parts = [
   component("formation", "bunch"),
   component("motion", "y-short"),
   component("pass", "trail"),
-  component("coverage", "cover-1"),
 ];
 
 const messages = (findings: Finding[], level: Finding["level"]) =>
@@ -87,13 +69,6 @@ describe("references between files", () => {
     expect(messages(findings, "error")).toEqual([
       "components.action: bluff does not exist under content/components/action/",
       "components.action: play-action does not exist under content/components/action/",
-    ]);
-  });
-
-  it("a vs.coverage with no coverage part is an error", () => {
-    const findings = validate([play({ vs: { ...basePlay.vs, coverage: "cover-3" } })], parts);
-    expect(messages(findings, "error")).toEqual([
-      "vs.coverage: cover-3 does not exist under content/components/coverage/",
     ]);
   });
 
@@ -154,29 +129,27 @@ describe("file names", () => {
   });
 });
 
-describe("body headings", () => {
-  it("a play missing one of its three headings is an error", () => {
-    const body = bodyWith(PLAY_HEADINGS.slice(0, 2));
+describe("the body", () => {
+  it("a play with prose below its frontmatter is an error", () => {
+    const body = "\n## このプレーの何が面白いか\n本文。\n";
     expect(messages(validate([play({}, body)], parts), "error")).toEqual([
-      `missing heading "${PLAY_HEADINGS[2]}"`,
+      "the body is not empty; write frontmatter only",
     ]);
   });
 
-  it("a component missing one of its two headings is an error", () => {
-    const part = { ...component("pass", "trail"), body: bodyWith(COMPONENT_HEADINGS.slice(0, 1)) };
+  it("a component with prose below its frontmatter is an error", () => {
+    const part = { ...component("pass", "trail"), body: "## 何か\n本文。" };
     expect(messages(validate([], [part]), "error")).toEqual([
-      `missing heading "${COMPONENT_HEADINGS[1]}"`,
+      "the body is not empty; write frontmatter only",
     ]);
+  });
+
+  it("blank lines below the frontmatter count as empty", () => {
+    expect(validate([play({}, "\n\n")], parts)).toEqual([]);
   });
 });
 
-describe("warnings about the evidence", () => {
-  it("confidence low is a warning", () => {
-    const findings = validate([play({ vs: { ...basePlay.vs, confidence: "low" } })], parts);
-    expect(messages(findings, "warning")).toEqual(["vs.confidence is low"]);
-    expect(messages(findings, "error")).toEqual([]);
-  });
-
+describe("warnings", () => {
   it("an unknown away team is a warning", () => {
     const findings = validate([play({ game: { ...basePlay.game, away: "unknown" } })], parts);
     expect(messages(findings, "warning")).toEqual(["game has an unknown team"]);
@@ -208,7 +181,7 @@ describe("the play schema", () => {
     ]);
   });
 
-  it("coverage under components is an error, since the defense goes in vs", () => {
+  it("coverage under components is an error, since the defense is not recorded", () => {
     const result = playSchema.safeParse({ ...basePlay, components: { coverage: "cover-1" } });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toContainEqual(
@@ -216,10 +189,12 @@ describe("the play schema", () => {
     );
   });
 
-  it("vs.evidence shorter than ten characters is an error", () => {
-    const result = playSchema.safeParse({ ...basePlay, vs: { ...basePlay.vs, evidence: "guess" } });
+  it("a vs block is an error, since the defense is not recorded", () => {
+    const result = playSchema.safeParse({ ...basePlay, vs: { coverage: "cover-1" } });
     expect(result.success).toBe(false);
-    expect(result.error?.issues.map((issue) => issue.message)).toEqual(["missing or too short"]);
+    expect(result.error?.issues).toContainEqual(
+      expect.objectContaining({ code: "unrecognized_keys", keys: ["vs"] }),
+    );
   });
 
   it("a game.offense that is neither team is an error", () => {

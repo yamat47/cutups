@@ -4,7 +4,7 @@ This is a working log, not a specification. The project moves by trial and error
 
 ## What this is
 
-A catalog of football play examples. The source material is videos on Instagram and X that diagram one play from one game (playdesignerpro, offensive_guru and similar accounts). Each play is organized by its parts: formation, motion, run scheme, pass concept, action, and the defense the opponent showed. The readers are Japanese coaches and players who come here when they want to add a play. Nothing is translated, but tags and commentary are written in Japanese. Collection is not automated: the author (yamat47) picks the videos and hands them over with their captions.
+A catalog of football play examples. The source material is videos on Instagram and X that diagram one play from one game (playdesignerpro, offensive_guru and similar accounts). Each play is organized by its parts: formation, motion, run scheme, pass concept, action. The readers are Japanese coaches and players who come here when they want to add a play. The video explains the play, so the site carries the video and the English names of its parts and nothing else: no commentary, no translation. Collection is not automated: the author (yamat47) picks the videos and hands them over with their captions.
 
 ## How a session starts
 
@@ -19,18 +19,18 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 
 ## Decided so far
 
-### Data model (v0.2.1)
+### Data model (v0.3)
 
 - The repository is the database. One video is one play example is one file in `content/plays/*.md` (YAML frontmatter plus Markdown). There is no server and no external database; the result is a static site.
 - The node is a play example, not a concept. Concepts (Bunch, Trail, Cover 1 and so on) are parts in `content/components/{kind}/*.md`, and a play is a composition of parts. Parsing the author's title (`Y-Short Bunch Trail`) gives `motion: y-short`, `formation: bunch`, `pass: trail` directly.
-- There are six kinds of part: formation, motion, run, pass, action, coverage. A part file has two headings only, the definition (「何か」) and how to recognize it (「見分け方」). A variant points at its parent with `variant_of` (`gy-counter` and `counter-solid` are both `counter`).
-- `vs`, the defense the opponent showed on this play, is required. A guess is allowed, but `coverage`, `confidence` (high / medium / low) and `evidence` always come together. It records what was actually shown, not what the play is meant to beat.
-- Relations are never written by hand. "Same picture, different play" (same formation and motion), "same scheme" (same run or pass) and "plays used against this defense" (same vs) are derived at build time from shared parts. The only hand-written relation is `builds_on`, used when the author says the play was designed against another one.
-- A play body has three headings: what is interesting about this play, how it unfolds, and how the defense was read. A part page carries the definition once; per-play commentary lives in the play.
+- There are five kinds of part: formation, motion, run, pass, action. A part is a name: its `title`, its `aliases` and, for a variant, the parent it points at with `variant_of` (`gy-counter` and `counter-solid` are both `counter`).
+- The defense a play met is not recorded. The author decided so after 18 plays, all of whose readings stayed `low`: no transcript and no caption named the coverage, and most diagrams drew none.
+- Relations are never written by hand. "Same picture, different play" (same formation and motion), and "same scheme" (same run or pass) are derived at build time from shared parts. The only hand-written relation is `builds_on`, used when the author says the play was designed against another one.
+- Plays and parts are frontmatter only; validate rejects anything below it. The video explains the play, so the repository writes no commentary on it and no definition of a part.
 - The vocabulary grows from examples. A missing part is added in the same PR as the play. There is no taxonomy designed up front.
 - A play's slug is `{season}-{away}-{home}-{title-kebab}`.
 - Video files never enter the repository. Only the URL is stored, and the site shows the platform's official embed (Instagram: `<blockquote class="instagram-media" data-instgrm-permalink="URL">` plus embed.js; X: `<blockquote class="twitter-tweet"><a href="URL"></a></blockquote>` plus widgets.js). Both work from the URL alone, so no oEmbed API and no token are needed.
-- Play and component bodies are Japanese, for the readers. Everything else in the repository (docs, code, commit messages) is English.
+- Everything is English: the names, as the authors and coaches use them, and the docs, code and commit messages. `title_ja` was dropped with the bodies.
 - A play may have more than one part of a kind, so a value under `components` is a slug or a list of slugs (`action: [play-action, bluff]`), and the schema turns both into a list. The rest of the model is in `DATA_MODEL.md`.
 
 ### Ingestion
@@ -39,18 +39,18 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - `make inbox` serves a page on the author's machine (`application/scripts/inbox/`, port 4322) that takes the video and its URL and writes both files, with the author and the caption from the platform's oEmbed; `make lookup URL=` gives the same answer from the shell. This is not the scraping that was set aside: no page is fetched, no cookie is used, and the video is still handed over by the author. The endpoints and their caveats are in `lookup.ts`.
 - The skill (`.claude/skills/ingest-play/SKILL.md`) fixes the procedure in eight steps: make the material, read every existing part, parse the name, choose the parts, read the defense, write the play, validate, open the PR.
 - `application/scripts/extract.sh` does the deterministic preprocessing: 1 fps sheets, the diagram cut into three high-resolution strips, and a transcript when the Whisper model can be fetched. `make extract NAME=<name>` runs it in the container; the `Dockerfile` and `compose.yaml` say what it needs and why.
-- `application/scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, the body headings are present. A reference that does not exist yet or `confidence: low` is a warning; a missing required field is an error.
-- The PR body follows `.claude/skills/ingest-play/pr-template.md` and carries the title-to-parts table, the `vs` evidence and confidence, the reason for each new part, and open questions. Inferences are marked as such. The template lives with the skill because a template under `.github/` would apply to every PR, the skill updates and the Dependabot bumps included.
+- `application/scripts/validate.ts` parses every frontmatter with the same zod schema the site uses (see Code below) and adds the checks that span files: every referenced part exists, `variant_of` points at a part of the same kind, nothing is below the frontmatter. A reference that does not exist yet is a warning; a missing required field is an error.
+- The PR body follows `.claude/skills/ingest-play/pr-template.md` and carries the title-to-parts table, the reason for each new part, and open questions. Inferences are marked as such. The template lives with the skill because a template under `.github/` would apply to every PR, the skill updates and the Dependabot bumps included.
 
 ### Site
 
 - Astro's content collections read `content/` as is, through the glob loader with `content/plays` and `content/components` as its base. Every page is generated at build time.
 - There is no client-side JavaScript except the embed scripts of Instagram and X. The relations are derived at build time, so a chip is a plain link. A component becomes an island only when an interaction needs one, and none does yet.
-- URLs: `/` is the play list, `/plays/{slug}/` a play, `/{kind}/{slug}/` a part with every play that has it, and `/{kind}/` the parts of one kind. `/coverage/cover-1/` is the list of plays used against Cover 1, the same page shape as any other part.
-- The search box is secondary. The main movement is pivoting: a play page shows its parts and its `vs` as chips, and a chip leads to every play that shares it.
+- URLs: `/` is the play list, `/plays/{slug}/` a play, `/{kind}/{slug}/` a part with every play that has it, and `/{kind}/` the parts of one kind.
+- The search box is secondary. The main movement is pivoting: a play page shows its parts as chips, and a chip leads to every play that shares it.
 - Styling is Astro's scoped `<style>` in each component, plus one `src/styles/global.css` with the custom properties for color, spacing and type. No CSS framework. The look is refined later with the `frontend-design` skill, and those are the two places it touches.
 - The relations are pure functions in `src/lib/relations.ts` over plain play and part entries, so vitest runs them without Astro; `src/lib/catalog.ts` loads the collections into those entries for the pages. "Same picture" needs at least a formation or a motion: two plays that name neither share nothing, not an empty picture. "Same scheme" groups by the top of the `variant_of` chain, so GY Counter and Counter Solid meet under Counter, and a part page lists the plays of every part below it in the chain, each variant under its own heading. Actions do not make a scheme.
-- A chip shows the part's English `title`, the name coaches use, with `title_ja` as its tooltip. The page chrome (navigation, headings, kind names) is Japanese, and an unknown team shows as 「不明」. `confidence: low` shows as 「確度 低（推測）」 next to the coverage chip, so the reader sees that the call is a guess.
+- A chip shows the part's English `title`, the name coaches use.
 - The site is published on GitHub Pages at `cutups.yamat47.me`. `.github/workflows/deploy.yml` builds on every push to `main` and deploys with `actions/deploy-pages`. The `pages` block and the cname go into the `cutups` entry in infra-github, in the form the other sites there use: `pages = { build_type = "workflow", cname = "cutups.yamat47.me" }`.
 - `deploy.yml` uses github-toolkit's wrappers of `actions/upload-pages-artifact` and `actions/deploy-pages` at `@main`, like every workflow here (see Code). Its build job has no npm cache, since a cache entry is shared across branches and what that job builds is published. It also runs on `workflow_dispatch`, to redeploy without a commit once Pages is turned on; a dispatch from another branch builds and does not publish. The deploy does not wait for `ci.yml`, because `check` is required on `main` in infra-github, so what reaches `main` has passed it.
 
@@ -84,7 +84,8 @@ Three things differ in Claude Code on the web: pull requests are opened with the
 - v0.1 made concepts the nodes, in a tree with hand-written `parent` / `beats` / `pairs_with`. The actual videos turned out to diagram one play from one game rather than explain a concept, and one play is a composition of several concepts (`GY Counter` plus `Reverse` plus `Throwback`), so it does not fit one place in a tree. `situations` (3rd and medium, and so on) and `status: stub` went with it.
 - Dify was considered and set aside. The real cost is getting the video and caption out of Instagram, and Dify has no node for that. The rest (ffmpeg, the LLM's judgment, git) is custom code either way, so a workflow builder in between does not shorten anything.
 - No scraping of Instagram. The closest thing to "just hand over a URL" is yt-dlp with cookies (it also returns the full caption as metadata), but the terms are grey and the cookie's account can get restricted. The author hands over the video; the caption comes from oEmbed when the endpoint answers, and from the author otherwise.
-- `vs.front` (4-2-5 and so on) is not a vocabulary. The field exists and accepts null.
+- `vs`, the defense the play met, with `coverage`, `confidence` and `evidence`, and the coverage parts whose 「見分け方」 were the checklist for reading it (v0.2 to v0.3). With no transcript and no caption naming the coverage, all 18 readings stayed `low`, and the author decided the defense is not collected.
+- Japanese commentary in a play body (「このプレーの何が面白いか」「展開」「守備の読み」), Japanese definitions in a part body (「何か」「見分け方」) and `title_ja` (v0.2 to v0.3). The video already explains the play, and the translated titles read badly (「アンバランスのクワッズ・エンプティ・ウイングへのシフト、Hアクロス、タックル・トラップのブラフからバブル」).
 - A React island for walking relations. The relations are derived at build time, so a chip is a link to a static page and the client has nothing to compute. An island is added when an interaction needs one.
 - validate with a schema of its own (the draft's `validate.mjs`), next to the zod schema the site needs. Every new field would have been written twice.
 - Biome, and Prettier with ESLint, for lint and format. Biome's `.astro` formatting is experimental and it has no Astro lint rules. Prettier plus ESLint with the Astro plugins covers the most of `.astro`, but is the slowest and needs the most configuration, and oxfmt formats `.astro` through the same `prettier-plugin-astro`, so the output is the same. Vite+ (`vp`) bundles the same oxlint, oxfmt and vitest behind one CLI and one config file, but Astro keeps its own dev and build commands, so `vp` would only wrap three scripts. `vp migrate` can bring it in later.
@@ -114,24 +115,21 @@ The plays processed with the draft and the result. The files went with the zip; 
 
 ## Still open
 
-- Search that starts from the defense ("bunch plays against Cover 1"). How to present it. For a static site the candidate is Pagefind at build time; decide when the chips stop being enough.
 - Whether `game` becomes a chip, for the day someone wants "that play from that game".
-- Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that `vs` plus parts cover it; more videos may say otherwise.
+- Whether `situations` (short yardage, red zone and so on) comes back. It was dropped on the assumption that parts cover it; more videos may say otherwise.
 - The GitHub Actions version that turns an issue into a PR. The stub is kept in the draft below and not committed. Issues cannot carry the video, so for now a local Claude Code runs the ingestion.
 - More skills from github-toolkit once there is code for them: `frontend-design` for the look. Not `react-patterns`, since there is no React.
 - Whether `kind` stays in a part's frontmatter. The directory already says it, validate checks that the two agree, and the collection id is `{kind}/{slug}`, so the field may be redundant. Decide when the first parts are written.
-- Where a transcript lives. `video.transcript` is a field of the model, but extract writes the transcript into the gitignored inbox and nothing carries it into the repository, so the evidence behind a `high` confidence is gone after the PR. Either the skill copies it into the content and the field points at it, or the field goes and the skill quotes the lines into 「守備の読み」.
+- Where a transcript lives. `video.transcript` is a field of the model, but extract writes the transcript into the gitignored inbox and nothing carries it into the repository, so what it said about the play's name is gone after the PR. Either the skill copies it into the content and the field points at it, or the field goes.
 - Whether validate derives the slug prefix from `game`. The formula `{season}-{away}-{home}-{title-kebab}` is prose only, and how a team name becomes kebab (`mtsu`, `hou-christian`) is decided by hand each time. The plays from #23 and #24 kebab the full name in `game` instead (`houston-christian`, `texas-am`, `florida-state`), so the two habits already disagree.
 - The diagram frame is taken at a fixed second (`AT=3` by default). When authors with another layout arrive, extract may need to find the still-to-film cut itself.
 - Per-platform knowledge is spread by concern: hosts in `platformOf`, oEmbed endpoints and caption fields in `lookup.ts`, and the embed markup in `src/components/Embed.astro`. One record per platform would make a new platform a row rather than three edits. Step 6 added the embed and left the three apart to stay within its scope; do it when a third platform is added.
 - `make dev` can refuse to start with "Another astro dev server is already running". Astro 7 writes `application/.astro/dev.json` with the server's PID and treats the server as alive while that PID is; a server stopped without removing it leaves the file in the bind mount, and the next container reuses the same small PIDs, so the dead server looks alive. Deleting the file is the workaround; `astro dev --ignore-lock` in the `dev` script would be the fix, since every `make dev` is a fresh container.
-- The prose style of the Japanese part bodies. Some use arrows and "label: explanation" bullets that the writing conventions do not allow. Fix as they are touched.
-- Every video handed over by offensive_guru and coachcarsonhart so far is a screen recording of the Instagram web page with no audio track. Extract's transcription fails on each one ("tuple index out of range" in `transcript.log`), so no play can reach `high` through a transcript, and the film fills only a small box in the left half of the frame. Each ingestion has cropped the diagram, the film and the comments by hand with ffmpeg in the container. Extract could report "no audio track" instead of a failure, and could write those three crops itself when the frame is a recording of the web page.
+- Every video handed over by offensive_guru and coachcarsonhart so far is a screen recording of the Instagram web page with no audio track. Extract's transcription fails on each one ("tuple index out of range" in `transcript.log`), and the film fills only a small box in the left half of the frame. Each ingestion has cropped the diagram, the film and the comments by hand with ffmpeg in the container. Extract could report "no audio track" instead of a failure, and could write those three crops itself when the frame is a recording of the web page.
 - `make extract` on a still image saved as `.mp4` (`offensive-guru-dehn7vpcblb`, a PNG screenshot of the post) stops with "no frame at second 3; the video is N/A s long". Extract, or the inbox page, could check the file type and say what it is.
-- Every one of the 18 plays has `confidence: low`. Most coachcarsonhart diagrams draw no defense, and `medium` asks the diagram and the film to agree, so for those posts `medium` cannot be reached however clear the film is. Either the rubric gets a rule for film-only reads, or `low` is accepted for them and the coverage cues are grown from authors who draw or name the defense.
 - A post with no play name. The LSU post (#24) has only "LSU put on a clinic last night" and "Great playcall on 3rd down", so its `title` is composed from the diagram's labels and marked in a comment, although the model says the title is the author's name verbatim. Decide whether that stays the rule or a play without a name gets a field for it.
 - Title words with no part: Shift and Unbalanced (Northwestern, #23), Nub (North Texas, #23), Buck (Northwestern, #24). Each is kept in the title and a frontmatter comment. Add a part when a second play needs the same word.
-- The draft at the end of this file still holds copies of files that are now real (the Bills play, `cover-1`). The draft's own note says the PR that makes one real deletes its copy; the PRs that added them did not.
+- The draft at the end of this file still holds a copy of a file that is now real (the Bills play). The draft's own note says the PR that makes one real deletes its copy; the PR that added it did not.
 
 ## Next
 
@@ -192,11 +190,11 @@ Done: `https://cutups.yamat47.me/` serves the play list. The `pages` block went 
 
 ### 8. Growing the catalog
 
-Not one PR. Five to ten more videos to grow the part vocabulary and the coverage recognition cues, then `frontend-design` from github-toolkit for the look, then the items under "Still open" as the content makes them concrete. This step is never ticked.
+Not one PR. Five to ten more videos to grow the part vocabulary, then `frontend-design` from github-toolkit for the look, then the items under "Still open" as the content makes them concrete. This step is never ticked.
 
 ## How the work goes
 
-- The author hands over a video and its caption, Claude Code opens a PR through `/ingest-play`, the author reviews and merges. Whatever the review corrected is written back into the skill or into a part's 「見分け方」, so the next video from the same author does not repeat it.
+- The author hands over a video and its caption, Claude Code opens a PR through `/ingest-play`, the author reviews and merges. Whatever the review corrected is written back into the skill, so the next video from the same author does not repeat it.
 - Model changes are small and come with their reason. The move from v0.1 to v0.2 only became necessary after two real videos had been processed. The order stays: process videos, then fix what got in the way.
 - Changing an existing part's definition is its own PR, separate from adding plays.
 

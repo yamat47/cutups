@@ -3,7 +3,7 @@
 import type { Catalog, Play } from "../lib/catalog.ts";
 import { gameLabel } from "../lib/labels.ts";
 import { playHref } from "../lib/hrefs.ts";
-import { partsOf, vsOf } from "../lib/relations.ts";
+import { partsOf } from "../lib/relations.ts";
 import Chip from "./Chip.astro";
 
 interface Props {
@@ -22,15 +22,11 @@ const Heading = `h${level}` as const;
   <Heading class="name">
     <a href={playHref(play.slug)}>{data.title}</a>
   </Heading>
-  <p class="muted">
-    {data.title_ja} ・ {gameLabel(data.game)}
-  </p>
+  <p class="muted">{gameLabel(data.game)}</p>
   <p class="chips">
     {partsOf(data).map((ref) => (
       <Chip part={catalog.part(ref)} />
     ))}
-    <span class="muted">vs</span>
-    <Chip part={catalog.part(vsOf(data))} />
   </p>
 </article>
 
