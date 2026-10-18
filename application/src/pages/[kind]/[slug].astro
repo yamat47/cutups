@@ -1,11 +1,11 @@
 ---
+// A tag's page: every play with the part or one of its variants, two to a row.
 import Chip from "../../components/Chip.astro";
-import PlayList from "../../components/PlayList.astro";
+import PlayCard from "../../components/PlayCard.astro";
 import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Part } from "../../lib/catalog.ts";
-import { kindHref } from "../../lib/hrefs.ts";
 import { KIND_LABEL } from "../../lib/labels.ts";
-import { playsWithPart, variantsOf } from "../../lib/relations.ts";
+import { playsWithFamily, variantsOf } from "../../lib/relations.ts";
 
 export async function getStaticPaths() {
   const catalog = await loadCatalog();
@@ -25,70 +25,59 @@ const { kind, data } = part;
 
 const parent = data.variant_of ? catalog.part({ kind, slug: data.variant_of }) : null;
 const variants = variantsOf(catalog.parts, part);
-const plays = playsWithPart(catalog.plays, part);
-const variantPlays = variants.map((variant) => ({
-  variant,
-  plays: playsWithPart(catalog.plays, variant),
-}));
-// "None yet" only when no play in the whole family has the part.
-const familyIsEmpty = plays.length === 0 && variantPlays.every(({ plays }) => plays.length === 0);
+const plays = playsWithFamily(catalog.plays, catalog.parts, part);
 ---
 
 <Base title={data.title}>
-  <p class="muted">
-    <a href={kindHref(kind)}>{KIND_LABEL[kind]}</a>
-  </p>
-  <h1>{data.title}</h1>
-  <p class="muted">{data.aliases.length > 0 && `別名: ${data.aliases.join("、")}`}</p>
-
-  {(parent || variants.length > 0) && (
-    <dl class="facts">
-      {parent && (
-        <>
-          <dt>変種の元</dt>
-          <dd>
-            <Chip part={parent} />
-          </dd>
-        </>
-      )}
-      {variants.length > 0 && (
-        <>
-          <dt>変種</dt>
-          <dd>
-            {variants.map((variant) => (
-              <Chip part={variant} />
-            ))}
-          </dd>
-        </>
-      )}
-    </dl>
-  )}
-
-  <section class="related">
-    <PlayList
-      heading="このパーツを使うプレー"
-      plays={plays}
-      catalog={catalog}
-      level={2}
-      empty={familyIsEmpty ? "まだありません。" : undefined}
-    />
-    {variantPlays.map(({ variant, plays }) => (
-      <PlayList
-        heading={`変種 ${variant.data.title} のプレー`}
-        plays={plays}
-        catalog={catalog}
-        level={2}
-      />
-    ))}
+  <section class="tag" data-kind={kind}>
+    <p class="kind">{KIND_LABEL[kind]}</p>
+    <h1 class="name">{data.title}</h1>
+    <p class="meta">{plays.length === 1 ? "1 play" : `${plays.length} plays`}</p>
+    {data.aliases.length > 0 && <p class="meta">Also called {data.aliases.join(", ")}</p>}
+    {(parent || variants.length > 0) && (
+      <div class="rail">
+        {parent && <Chip part={parent} />}
+        {variants.map((variant) => (
+          <Chip part={variant} />
+        ))}
+      </div>
+    )}
   </section>
+
+  <div class="grid">
+    {plays.map((play) => (
+      <PlayCard play={play} />
+    ))}
+  </div>
 </Base>
 
 <style>
-  .muted,
+  .tag {
+    padding-top: 1.5rem;
+  }
+  .kind {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--kind);
+  }
   h1 {
     margin: 0;
+    font-size: 2.5rem;
   }
-  h1 + .muted {
-    margin-bottom: var(--space-3);
+  .meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+  }
+  .rail {
+    margin-top: 0.75rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 0.75rem;
+    margin-top: 1.5rem;
   }
 </style>

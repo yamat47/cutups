@@ -1,41 +1,146 @@
 ---
-// The platform's official embed, built from the URL alone (DATA_MODEL.md). These
-// two scripts are the only client-side JavaScript on the site. A host the site has
-// no embed for falls back to a plain link; validate warns about such a URL.
+// The platform's official embed, built from the URL alone (DATA_MODEL.md).
+//
+// Instagram's embed.js swaps a blockquote for an iframe once it runs, so the page
+// collapses and then jumps while it loads. The site frames Instagram's /embed/ page
+// itself instead, sized before it loads, with a skeleton behind it until Instagram says
+// it has drawn. That page is a 54px header, the post at 4:5, then 154px of likes and a
+// comment box (measured from 200 to 540px wide on three posts), so the frame shows the
+// post alone and crops the rest; the card around it carries the author.
+//
+// A host the site has no embed for falls back to a plain link; validate warns about it.
 import { platformOf } from "../content/schema.ts";
 
 interface Props {
   url: string;
+  title: string;
 }
 
-const { url } = Astro.props;
+const { url, title } = Astro.props;
 const platform = platformOf(url);
+// /reel/{code}/ and /p/{code}/ are the same post; /p/{code}/embed/ draws either.
+const code = platform === "instagram" ? new URL(url).pathname.split("/").filter(Boolean)[1] : null;
 ---
 
 <div class="embed">
-  {platform === "instagram" ? (
-    <>
-      <blockquote class="instagram-media" data-instgrm-permalink={url}>
-        <a href={url}>Instagram で見る</a>
-      </blockquote>
-      <script is:inline async src="https://www.instagram.com/embed.js" />
-    </>
+  {platform === "instagram" && code ? (
+    <div class="frame">
+      <iframe
+        src={`https://www.instagram.com/p/${code}/embed/`}
+        title={`${title} on Instagram`}
+        loading="lazy"
+      />
+    </div>
   ) : platform === "x" ? (
     <>
       <blockquote class="twitter-tweet">
-        <a href={url}>X で見る</a>
+        <a href={url}>Watch on X</a>
       </blockquote>
       <script is:inline async src="https://platform.twitter.com/widgets.js" charset="utf-8" />
     </>
   ) : (
-    <p>
-      <a href={url}>動画を見る</a>
-    </p>
+    <a class="fallback" href={url}>
+      Watch the video
+    </a>
   )}
 </div>
 
+<script>
+  // Instagram's embed page posts its state to the page that frames it: LOADING, then
+  // MEASURE, then MOUNTED once it has drawn. MOUNTED takes the skeleton away; a frame
+  // that never says so is shown when it finishes loading. Frames the feed adds later, as
+  // it scrolls, are matched when their messages arrive.
+  const show = (frame: HTMLIFrameElement) => frame.closest(".frame")?.classList.add("ready");
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== "https://www.instagram.com" || typeof event.data !== "string") return;
+    let message: { type?: string };
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (message.type !== "MOUNTED") return;
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>(".embed iframe")) {
+      if (frame.contentWindow === event.source) show(frame);
+    }
+  });
+
+  document.addEventListener(
+    "load",
+    (event) => {
+      const frame = event.target;
+      if (frame instanceof HTMLIFrameElement && frame.closest(".embed")) {
+        setTimeout(() => show(frame), 1500);
+      }
+    },
+    true,
+  );
+</script>
+
 <style>
   .embed {
-    margin: var(--space-3) 0;
+    container-type: inline-size;
+  }
+  .frame {
+    position: relative;
+    height: calc(100cqi * 1.25);
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--color-surface);
+  }
+  .frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in srgb, var(--color-bg) 55%, transparent) 50%,
+      transparent 70%
+    );
+    background-size: 250% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  .frame iframe {
+    position: absolute;
+    top: -54px;
+    left: 0;
+    width: 100%;
+    height: calc(100cqi * 1.25 + 208px);
+    border: 0;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .frame.ready::before {
+    display: none;
+  }
+  .frame.ready iframe {
+    opacity: 1;
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -150% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .frame::before {
+      animation: none;
+    }
+    .frame iframe {
+      transition: none;
+    }
+  }
+  .fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4 / 5;
+    border-radius: 10px;
+    background: var(--color-surface);
+    font-size: var(--text-sm);
   }
 </style>

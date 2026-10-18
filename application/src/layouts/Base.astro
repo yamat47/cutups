@@ -1,8 +1,5 @@
 ---
 import "../styles/global.css";
-import { KINDS } from "../content/schema.ts";
-import { kindHref } from "../lib/hrefs.ts";
-import { KIND_LABEL } from "../lib/labels.ts";
 
 interface Props {
   /** The page's own name; the site name is added after it. */
@@ -13,23 +10,25 @@ const { title } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f9fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111a21" media="(prefers-color-scheme: dark)" />
     <title>{title ? `${title} | cutups` : "cutups"}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&display=swap"
+    />
   </head>
   <body>
     <header>
-      <a class="site" href="/">
+      <a class="name" href="/">
         cutups
       </a>
-      <nav>
-        <a href="/">プレー</a>
-        {KINDS.map((kind) => (
-          <a href={kindHref(kind)}>{KIND_LABEL[kind]}</a>
-        ))}
-      </nav>
     </header>
     <main>
       <slot />
@@ -39,30 +38,10 @@ const { title } = Astro.props;
 
 <style>
   header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-3);
-    padding-bottom: var(--space-3);
-    margin-bottom: var(--space-4);
-    border-bottom: 1px solid var(--color-border);
+    padding-top: max(var(--space-3), env(safe-area-inset-top));
   }
-  .site {
-    font-size: var(--text-lg);
-    font-weight: bold;
-    color: var(--color-fg);
+  header a {
+    font-size: 1.375rem;
     text-decoration: none;
-  }
-  nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-  }
-  nav a {
-    color: var(--color-muted);
-  }
-  main {
-    max-width: 48rem;
   }
 </style>

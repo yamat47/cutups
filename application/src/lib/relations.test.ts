@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Component, Play } from "../content/schema.ts";
 import {
   buildsOnThis,
+  derivedPlays,
+  playsWithFamily,
   familyLookup,
   partsOf,
   playsWithPart,
@@ -204,5 +206,30 @@ describe("buildsOnThis", () => {
       play("unrelated", { pass: ["wheel"] }),
     ];
     expect(slugs(buildsOnThis(plays, base))).toEqual(["answer"]);
+  });
+});
+
+describe("derivedPlays", () => {
+  it("lists each play that shares the picture, a scheme or builds on it once, in feed order", () => {
+    const base = play("base", { formation: ["bunch"], run: ["gy-counter"] });
+    const plays = [
+      play("built", { pass: ["mesh"] }, { builds_on: "base" }),
+      play("both", { formation: ["bunch"], run: ["counter"] }),
+      base,
+      play("picture", { formation: ["bunch"], pass: ["trail"] }),
+      play("unrelated", { run: ["split-zone"] }),
+    ];
+    expect(slugs(derivedPlays(plays, runs, base))).toEqual(["built", "both", "picture"]);
+  });
+});
+
+describe("playsWithFamily", () => {
+  it("counts a variant's plays as the parent's, in feed order, each once", () => {
+    const plays = [
+      play("gy", { run: ["gy-counter"] }),
+      play("zone", { run: ["split-zone"] }),
+      play("both", { run: ["counter", "counter-solid"] }),
+    ];
+    expect(slugs(playsWithFamily(plays, runs, runs[0]!))).toEqual(["gy", "both"]);
   });
 });

@@ -1,55 +1,46 @@
 ---
-// One play in a list: its name, its game, its parts and the defense it met.
-import type { Catalog, Play } from "../lib/catalog.ts";
-import { gameLabel } from "../lib/labels.ts";
+// One play as a card: the video itself, then its name, game and author.
+import type { Play } from "../lib/catalog.ts";
 import { playHref } from "../lib/hrefs.ts";
-import { partsOf } from "../lib/relations.ts";
-import Chip from "./Chip.astro";
+import { gameLabel } from "../lib/labels.ts";
+import Embed from "./Embed.astro";
 
 interface Props {
   play: Play;
-  catalog: Catalog;
-  /** The heading level of the play's name, which depends on the page around the card. */
-  level?: 2 | 3 | 4;
 }
 
-const { play, catalog, level = 2 } = Astro.props;
+const { play } = Astro.props;
 const { data } = play;
-const Heading = `h${level}` as const;
 ---
 
-<article>
-  <Heading class="name">
-    <a href={playHref(play.slug)}>{data.title}</a>
-  </Heading>
-  <p class="muted">{gameLabel(data.game)}</p>
-  <p class="chips">
-    {partsOf(data).map((ref) => (
-      <Chip part={catalog.part(ref)} />
-    ))}
+<article class="card">
+  <Embed url={data.video.url} title={data.title} />
+  <a class="name" href={playHref(play.slug)}>
+    {data.title}
+  </a>
+  <p class="meta">
+    {gameLabel(data.game)}
+    <br />@{data.video.author}
   </p>
 </article>
 
 <style>
-  article {
-    padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--color-border);
+  .card {
+    min-width: 0;
   }
   .name {
-    margin: 0;
-    font-size: var(--text-lg);
+    display: -webkit-box;
+    margin-top: 0.625rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 1.125rem;
+    text-decoration: none;
   }
-  .name a {
-    color: var(--color-fg);
-  }
-  .muted {
-    margin: 0;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1) var(--space-2);
-    margin: var(--space-2) 0 0;
+  .meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color-muted);
   }
 </style>
