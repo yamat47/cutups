@@ -12,8 +12,11 @@ help: ## List the targets
 install: ## Build the image and install the dependencies; rerun after a change to package.json or the Dockerfile
 	$(RUN) --build app npm ci
 
+# A dev server stopped by killing make leaves its container holding the port, so the
+# container has a fixed name and a new one replaces it.
 dev: ## Start the dev server on http://localhost:4321
-	$(RUN) --service-ports app npm run dev
+	-@docker rm -f cutups-dev >/dev/null 2>&1
+	$(RUN) --name cutups-dev --service-ports app npm run dev
 
 inbox: ## Start the inbox page on http://localhost:4322, to drop a video and its URL
 	$(RUN) -p 127.0.0.1:4322:4322 app node scripts/inbox/server.ts
