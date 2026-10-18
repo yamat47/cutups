@@ -1,0 +1,58 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  # Redeploys without a commit, for example once Pages is turned on in infra-github.
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    working-directory: application
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout
+    steps:
+      # github-toolkit is called at @main rather than pinned by SHA: it is the author's
+      # own repository, it pins the upstream actions by SHA and Dependabot bumps them
+      # there, and a change on its main reaches this workflow on the next run.
+      - uses: yamat47/github-toolkit/actions/checkout@main
+        with:
+          persist-credentials: false
+      # No npm cache here, unlike ci.yml: a cache entry is shared across branches, and
+      # what this job builds is published.
+      - uses: yamat47/github-toolkit/actions/setup-node@main
+        with:
+          node-version-file: application/.node-version
+      - run: npm ci
+      - run: npm run build
+      - uses: yamat47/github-toolkit/actions/upload-pages-artifact@main
+        with:
+          path: application/dist
+
+  deploy:
+    # A dispatch from another branch builds it but does not publish it.
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    # Only publishing is serialized, so a build from another branch never cancels a
+    # queued deploy. A deploy runs to the end; the next one waits for it.
+    concurrency:
+      group: ${{ github.workflow }}-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write # deploy-pages
+      id-token: write # deploy-pages proves where the artifact came from with an OIDC token
+    steps:
+      - id: deployment
+        uses: yamat47/github-toolkit/actions/deploy-pages@main
