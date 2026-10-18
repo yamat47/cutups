@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev --host",
+    "dev": "astro dev --host --ignore-lock",
     "build": "astro build",
     "check": "astro check && oxlint src scripts && oxfmt --check",
     "fmt": "oxfmt",
