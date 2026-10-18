@@ -137,7 +137,7 @@ The order is a guess and will change. Each step is one PR that is green on its o
 - [x] 4. Ingestion: the skill and extract.sh
 - [x] 5. The first plays
 - [x] 6. The site
-- [ ] 7. Publishing
+- [x] 7. Publishing
 - [ ] 8. Growing the catalog
 
 ### 1. Toolchain
@@ -182,7 +182,7 @@ The step is done when `npm run build` writes a page for every play and every par
 
 The PR adds `.github/workflows/deploy.yml`: on push to `main`, build, then `actions/upload-pages-artifact` and `actions/deploy-pages`, with `pages: write` and `id-token: write` on the deploy job, through github-toolkit's wrappers at `@main`. The author adds `pages` with `cname = "cutups.yamat47.me"` to the `cutups` entry in infra-github and the DNS record.
 
-The step is done when `https://cutups.yamat47.me/` serves the play list. `deploy.yml` is in, and the `pages` block is in yamat47/infra-github#28 with `https_enforced = false` for the first apply; what remains is the DNS record, a follow-up in infra-github that enforces HTTPS once the certificate exists, and ticking the step once the site answers.
+Done: `https://cutups.yamat47.me/` serves the play list. The `pages` block went in with yamat47/infra-github#28 and the DNS record with yamat47/infra-yamat47#62. The certificate was issued only after the custom domain was removed and saved again in the repository's Pages settings, since the domain had been set before its DNS record existed and GitHub did not retry the check; with the same value, Terraform sees no difference. HTTPS is enforced by the follow-up in infra-github that drops `https_enforced = false`.
 
 ### 8. Growing the catalog
 
