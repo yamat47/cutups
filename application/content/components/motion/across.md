@@ -1,14 +1,5 @@
 ---
 kind: motion
 title: Across
-title_ja: アクロス
-aliases: [Across Motion, X-Across, H-Across, Cross Motion, アクロス・モーション]
+aliases: [Across Motion, X-Across, H-Across, Cross Motion]
 ---
-
-## 何か
-
-レシーバーかバックの1人が、スナップ前にボールの後ろを通ってフィールドを反対側まで横切るモーション。片側の人数がそのまま逆へ移るので、守備は誰かを付いて走らせるか、全体の並びをずらすかを迫られる。誰が動くかで X-Across、H-Across のように呼び分ける。
-
-## 見分け方
-
-スナップ前、片方の外にいた選手がQBの後ろか前を横切り、反対側のレシーバーの近くかさらに外まで走る。Yショートのように隣で止まらず、ボールの向こう側まで行く。図ではその選手の丸から長いジグザグの線がフィールドを横断する。
