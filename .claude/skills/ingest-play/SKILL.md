@@ -12,7 +12,7 @@ Output: `application/content/plays/<slug>.md`, plus any new part under `applicat
 
 ## Steps, in this order
 
-1. **Make the material**: from the repository root, `make extract NAME=<name>`. It writes `application/inbox/<name>/`; read every image there with the Read tool (the sheets, one frame per second, and the three diagram strips) and the transcript when there is one. When the diagram is not on screen at second 3, rerun with `AT=<second>`.
+1. **Make the material**: from the repository root, `make extract NAME=<name>`. It writes `application/inbox/<name>/`; read every image there with the Read tool (the sheets, one frame per second, and the three diagram strips) and the transcript when there is one. A screen recording of the Instagram web page also gets `post_N.jpg`, the post every 2 seconds at full size, and `comments.jpg`, the caption and the comments; read those first. A still image handed over as a video is copied to `image.<ext>`, which is then the whole material. When the diagram is not on screen at second 3, rerun with `AT=<second>`.
 
 2. **Read what exists**: once per session, every file under `application/content/components/` and `application/content/plays/`; for later plays in the same session, only what the session added. Before creating a part, check that nothing existing matches, aliases included.
 
