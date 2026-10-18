@@ -1,60 +1,122 @@
+/* Phone first: the page is a single column laid out for about 360px and only caps its
+   width above that, at the widest an Instagram embed draws. Every color has a dark
+   value, chosen by the system. */
 :root {
-  --color-bg: #ffffff;
-  --color-fg: #1a1a1a;
-  --color-muted: #6b6b6b;
-  --color-border: #d9d9d9;
-  --color-accent: #0b5fff;
+  color-scheme: light dark;
+
+  --color-bg: #f7f9fa;
+  --color-fg: #14212b;
+  --color-muted: #5b6b77;
+  --color-border: #d5dde3;
+  --color-surface: #e6ecef;
+
+  /* One color per kind of part, taken from how play diagrams are drawn: routes in
+     orange, motion as a purple zigzag. They mark which kind a tag is, and nothing else. */
+  --kind-formation: #2f5da8;
+  --kind-motion: #7a4bb0;
+  --kind-run: #2b7a4b;
+  --kind-pass: #ad4f10;
+  --kind-action: #127a80;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 1rem;
-  --space-4: 2rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --gutter: 1rem;
+  --column: 540px;
 
   --font-sans: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  /* Play and part names: the condensed face fits a long name on one phone line. */
+  --font-name: "Big Shoulders Display", var(--font-sans);
   --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.75rem;
-  --leading: 1.6;
+  --leading: 1.5;
+
+  --tap: 2.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #111a21;
+    --color-fg: #e6ecef;
+    --color-muted: #93a3ae;
+    --color-border: #2b3a45;
+    --color-surface: #1d2a34;
+
+    --kind-formation: #7ea6e8;
+    --kind-motion: #b896e6;
+    --kind-run: #6cc28f;
+    --kind-pass: #f0975a;
+    --kind-action: #5cc6cc;
+  }
+}
+
+/* Anything that carries a kind gets its color as --kind. */
+[data-kind="formation"] {
+  --kind: var(--kind-formation);
+}
+[data-kind="motion"] {
+  --kind: var(--kind-motion);
+}
+[data-kind="run"] {
+  --kind: var(--kind-run);
+}
+[data-kind="pass"] {
+  --kind: var(--kind-pass);
+}
+[data-kind="action"] {
+  --kind: var(--kind-action);
 }
 
 body {
-  margin: 0;
-  padding: var(--space-3);
+  margin: 0 auto;
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  padding: 0 var(--gutter) max(var(--space-5), env(safe-area-inset-bottom));
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading);
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Shared by the pages: muted notes, a play's or a part's facts as a two-column list,
-   and the section of related plays below the body. */
+a {
+  color: inherit;
+  text-underline-offset: 0.15em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+.name {
+  font-family: var(--font-name);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
 .muted {
   font-size: var(--text-sm);
   color: var(--color-muted);
 }
 
-dl.facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-2) var(--space-3);
-  align-items: baseline;
-}
-dl.facts dt {
-  font-size: var(--text-sm);
-  color: var(--color-muted);
-}
-dl.facts dd {
+/* Tags in a row that scrolls sideways instead of wrapping. The row runs to the
+   screen edges so that a cut-off tag shows there is more. */
+.rail {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  margin: 0;
+  gap: var(--space-2);
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: none;
 }
-
-section.related {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  flex: none;
 }

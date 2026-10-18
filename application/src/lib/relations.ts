@@ -127,3 +127,20 @@ export function sameScheme<T extends PlayEntry>(
 export function buildsOnThis<T extends PlayEntry>(plays: readonly T[], play: PlayEntry): T[] {
   return plays.filter((other) => other.data.builds_on === play.slug);
 }
+
+/**
+ * The plays derived from this one, as one list: same picture, same scheme and the plays
+ * built on it, each once and in the order of `plays`.
+ */
+export function derivedPlays<T extends PlayEntry>(
+  plays: readonly T[],
+  parts: readonly PartEntry[],
+  play: PlayEntry,
+): T[] {
+  const related = new Set<string>([
+    ...samePicture(plays, play).map((other) => other.slug),
+    ...sameScheme(plays, parts, play).flatMap((scheme) => scheme.plays.map((other) => other.slug)),
+    ...buildsOnThis(plays, play).map((other) => other.slug),
+  ]);
+  return plays.filter((other) => related.has(other.slug));
+}

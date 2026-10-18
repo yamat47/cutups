@@ -1,13 +1,11 @@
 ---
 import Chip from "../../components/Chip.astro";
 import Embed from "../../components/Embed.astro";
-import PlayList from "../../components/PlayList.astro";
 import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Play } from "../../lib/catalog.ts";
 import { playHref } from "../../lib/hrefs.ts";
-import { KIND_LABEL, gameLabel } from "../../lib/labels.ts";
-import { KINDS } from "../../content/schema.ts";
-import { buildsOnThis, samePicture, sameScheme } from "../../lib/relations.ts";
+import { gameLabel } from "../../lib/labels.ts";
+import { derivedPlays, partsOf } from "../../lib/relations.ts";
 
 export async function getStaticPaths() {
   const catalog = await loadCatalog();
@@ -21,73 +19,86 @@ interface Props {
 
 const { play, catalog } = Astro.props;
 const { data } = play;
-
-const picture = samePicture(catalog.plays, play);
-const schemes = sameScheme(catalog.plays, catalog.parts, play);
-const answers = buildsOnThis(catalog.plays, play);
 const buildsOn = data.builds_on ? catalog.play(data.builds_on) : undefined;
-const hasRelations = picture.length + schemes.length + answers.length > 0;
+const derived = derivedPlays(catalog.plays, catalog.parts, play);
 ---
 
 <Base title={data.title}>
-  <h1>{data.title}</h1>
-  <p class="muted">
-    {gameLabel(data.game)} ・ <a href={data.video.url}>@{data.video.author}</a>
+  <h1 class="name">{data.title}</h1>
+  <p class="meta muted">
+    <span>{gameLabel(data.game)}</span>
+    <a href={data.video.url}>@{data.video.author}</a>
   </p>
 
-  <dl class="facts">
-    {KINDS.flatMap((kind) => {
-      const slugs = data.components[kind];
-      if (!slugs) return [];
-      return (
-        <>
-          <dt>{KIND_LABEL[kind]}</dt>
-          <dd>
-            {slugs.map((slug) => (
-              <Chip part={catalog.part({ kind, slug })} />
-            ))}
-          </dd>
-        </>
-      );
-    })}
-    {data.builds_on && (
-      <>
-        <dt>踏まえたプレー</dt>
-        <dd>
-          {buildsOn ? (
-            <a href={playHref(buildsOn.slug)}>{buildsOn.data.title}</a>
-          ) : (
-            <span class="muted">{data.builds_on}（未登録）</span>
-          )}
-        </dd>
-      </>
-    )}
-  </dl>
+  <Embed url={data.video.url} title={data.title} />
 
-  <Embed url={data.video.url} />
+  <div class="rail">
+    {partsOf(data).map((ref) => (
+      <Chip part={catalog.part(ref)} />
+    ))}
+  </div>
 
-  {hasRelations && (
-    <section class="related">
-      <h2>つながり</h2>
-      <PlayList heading="同じ絵から別のプレー" plays={picture} catalog={catalog} level={3} />
-      {schemes.map(({ kind, family, plays }) => (
-        <PlayList
-          heading={`同じ${KIND_LABEL[kind]}スキーム: ${catalog.part({ kind, slug: family }).data.title}`}
-          plays={plays}
-          catalog={catalog}
-          level={3}
-        />
-      ))}
-      <PlayList heading="このプレーを踏まえたプレー" plays={answers} catalog={catalog} level={3} />
+  {buildsOn && (
+    <p class="muted">
+      Built on <a href={playHref(buildsOn.slug)}>{buildsOn.data.title}</a>
+    </p>
+  )}
+
+  {derived.length > 0 && (
+    <section>
+      <h2>Derived from this play</h2>
+      <ul>
+        {derived.map((other) => (
+          <li>
+            <a class="name" href={playHref(other.slug)}>
+              {other.data.title}
+            </a>
+            <span class="muted">{gameLabel(other.data.game)}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   )}
 </Base>
 
 <style>
   h1 {
-    margin-bottom: 0;
+    margin: var(--space-4) 0 0;
+    font-size: 2.25rem;
   }
-  h1 + .muted {
-    margin-top: 0;
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-3);
+    margin: var(--space-1) 0 var(--space-3);
+  }
+  .rail {
+    margin-top: var(--space-3);
+  }
+  section {
+    margin-top: var(--space-5);
+  }
+  h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+  }
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--color-border);
+  }
+  li {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 3.5rem;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  li .name {
+    font-size: 1.25rem;
+    text-decoration: none;
   }
 </style>

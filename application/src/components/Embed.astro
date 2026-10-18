@@ -1,41 +1,134 @@
 ---
-// The platform's official embed, built from the URL alone (DATA_MODEL.md). These
-// two scripts are the only client-side JavaScript on the site. A host the site has
-// no embed for falls back to a plain link; validate warns about such a URL.
+// The platform's official embed, built from the URL alone (DATA_MODEL.md). Instagram's
+// own embed.js swaps a blockquote for an iframe once it runs, so the page collapses and
+// then jumps while it loads. The site opens Instagram's /embed/ page in an iframe of its
+// own instead, sized before it loads, with a skeleton behind it until Instagram says it
+// has drawn. A host the site has no embed for falls back to a plain link; validate warns
+// about such a URL.
 import { platformOf } from "../content/schema.ts";
 
 interface Props {
   url: string;
+  title: string;
 }
 
-const { url } = Astro.props;
+const { url, title } = Astro.props;
 const platform = platformOf(url);
+// /reel/{code}/ and /p/{code}/ are the same post; /p/{code}/embed/ draws either.
+const code = platform === "instagram" ? new URL(url).pathname.split("/").filter(Boolean)[1] : null;
 ---
 
 <div class="embed">
-  {platform === "instagram" ? (
-    <>
-      <blockquote class="instagram-media" data-instgrm-permalink={url}>
-        <a href={url}>Instagram で見る</a>
-      </blockquote>
-      <script is:inline async src="https://www.instagram.com/embed.js" />
-    </>
+  {platform === "instagram" && code ? (
+    <div class="frame">
+      <iframe
+        src={`https://www.instagram.com/p/${code}/embed/`}
+        title={`${title} on Instagram`}
+        loading="lazy"
+      />
+    </div>
   ) : platform === "x" ? (
     <>
       <blockquote class="twitter-tweet">
-        <a href={url}>X で見る</a>
+        <a href={url}>Watch on X</a>
       </blockquote>
       <script is:inline async src="https://platform.twitter.com/widgets.js" charset="utf-8" />
     </>
   ) : (
     <p>
-      <a href={url}>動画を見る</a>
+      <a href={url}>Watch the video</a>
     </p>
   )}
 </div>
 
+<script>
+  // Instagram's embed page posts its state to the page that frames it: LOADING, then
+  // MEASURE with its height, then MOUNTED once it has drawn. The height only confirms
+  // the reserved box; MOUNTED takes the skeleton away. A frame that never says so is
+  // shown when it finishes loading.
+  const frames = () => [...document.querySelectorAll<HTMLIFrameElement>(".embed iframe")];
+  const show = (frame: HTMLIFrameElement) => frame.closest(".frame")?.classList.add("ready");
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== "https://www.instagram.com" || typeof event.data !== "string") return;
+    let message: { type?: string; details?: { height?: number } };
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    const frame = frames().find((candidate) => candidate.contentWindow === event.source);
+    if (!frame) return;
+    const box = frame.closest<HTMLElement>(".frame");
+    if (message.type === "MEASURE" && message.details?.height && box) {
+      box.style.height = `${message.details.height}px`;
+    }
+    if (message.type === "MOUNTED") show(frame);
+  });
+
+  for (const frame of frames()) {
+    frame.addEventListener("load", () => setTimeout(() => show(frame), 1500), { once: true });
+  }
+</script>
+
 <style>
   .embed {
-    margin: var(--space-3) 0;
+    container-type: inline-size;
+  }
+  /* Instagram's embed is 1.25 times its width plus 208px tall for every post measured
+     (328px wide is 618px, 540px is 883px), so the box is that size from the start. */
+  .frame {
+    position: relative;
+    height: calc(100cqi * 1.25 + 208px);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+  .frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in srgb, var(--color-bg) 60%, transparent) 50%,
+      transparent 70%
+    );
+    background-size: 250% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  .frame iframe {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .frame.ready::before {
+    display: none;
+  }
+  .frame.ready iframe {
+    opacity: 1;
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -150% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .frame::before {
+      animation: none;
+    }
+    .frame iframe {
+      transition: none;
+    }
+  }
+  .embed p {
+    margin: 0;
   }
 </style>

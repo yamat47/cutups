@@ -1,9 +1,11 @@
 ---
+// A tag's page is the feed filtered by it. A part's variants count as the part, so
+// Counter lists the GY Counter plays too.
 import Chip from "../../components/Chip.astro";
-import PlayList from "../../components/PlayList.astro";
+import Filter from "../../components/Filter.astro";
+import PlayItem from "../../components/PlayItem.astro";
 import Base from "../../layouts/Base.astro";
 import { loadCatalog, type Catalog, type Part } from "../../lib/catalog.ts";
-import { kindHref } from "../../lib/hrefs.ts";
 import { KIND_LABEL } from "../../lib/labels.ts";
 import { playsWithPart, variantsOf } from "../../lib/relations.ts";
 
@@ -25,70 +27,54 @@ const { kind, data } = part;
 
 const parent = data.variant_of ? catalog.part({ kind, slug: data.variant_of }) : null;
 const variants = variantsOf(catalog.parts, part);
-const plays = playsWithPart(catalog.plays, part);
-const variantPlays = variants.map((variant) => ({
-  variant,
-  plays: playsWithPart(catalog.plays, variant),
-}));
-// "None yet" only when no play in the whole family has the part.
-const familyIsEmpty = plays.length === 0 && variantPlays.every(({ plays }) => plays.length === 0);
+const family = new Set(
+  [part, ...variants].flatMap((member) => playsWithPart(catalog.plays, member)),
+);
+const plays = catalog.plays.filter((play) => family.has(play));
 ---
 
 <Base title={data.title}>
-  <p class="muted">
-    <a href={kindHref(kind)}>{KIND_LABEL[kind]}</a>
-  </p>
-  <h1>{data.title}</h1>
-  <p class="muted">{data.aliases.length > 0 && `別名: ${data.aliases.join("、")}`}</p>
+  <Filter catalog={catalog} current={part} />
 
-  {(parent || variants.length > 0) && (
-    <dl class="facts">
-      {parent && (
-        <>
-          <dt>変種の元</dt>
-          <dd>
-            <Chip part={parent} />
-          </dd>
-        </>
-      )}
-      {variants.length > 0 && (
-        <>
-          <dt>変種</dt>
-          <dd>
-            {variants.map((variant) => (
-              <Chip part={variant} />
-            ))}
-          </dd>
-        </>
-      )}
-    </dl>
-  )}
-
-  <section class="related">
-    <PlayList
-      heading="このパーツを使うプレー"
-      plays={plays}
-      catalog={catalog}
-      level={2}
-      empty={familyIsEmpty ? "まだありません。" : undefined}
-    />
-    {variantPlays.map(({ variant, plays }) => (
-      <PlayList
-        heading={`変種 ${variant.data.title} のプレー`}
-        plays={plays}
-        catalog={catalog}
-        level={2}
-      />
-    ))}
+  <section class="tag" data-kind={kind}>
+    <p class="kind">{KIND_LABEL[kind]}</p>
+    <h1 class="name">{data.title}</h1>
+    {data.aliases.length > 0 && <p class="muted">Also called {data.aliases.join(", ")}</p>}
+    {(parent || variants.length > 0) && (
+      <div class="rail">
+        {parent && <Chip part={parent} />}
+        {variants.map((variant) => (
+          <Chip part={variant} />
+        ))}
+      </div>
+    )}
+    <p class="muted">{plays.length === 1 ? "1 play" : `${plays.length} plays`}</p>
   </section>
+
+  {plays.map((play) => (
+    <PlayItem play={play} catalog={catalog} current={part} />
+  ))}
 </Base>
 
 <style>
-  .muted,
+  .tag {
+    padding: var(--space-4) 0 var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .kind {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--kind);
+  }
   h1 {
     margin: 0;
+    font-size: 2.25rem;
   }
-  h1 + .muted {
-    margin-bottom: var(--space-3);
+  .tag .muted {
+    margin: var(--space-1) 0 0;
+  }
+  .rail {
+    margin-top: var(--space-3);
   }
 </style>

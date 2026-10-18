@@ -1,0 +1,89 @@
+---
+// The one control over a feed: pick a tag and see only its plays. A tag's page is the
+// filtered feed, so picking one is a link and the filter needs no script.
+import { KINDS } from "../content/schema.ts";
+import type { Catalog, Part } from "../lib/catalog.ts";
+import { KIND_LABEL } from "../lib/labels.ts";
+import Chip from "./Chip.astro";
+
+interface Props {
+  catalog: Catalog;
+  current?: Part | undefined;
+}
+
+const { catalog, current } = Astro.props;
+const groups = KINDS.map((kind) => ({
+  kind,
+  parts: catalog.parts.filter((part) => part.kind === kind),
+})).filter(({ parts }) => parts.length > 0);
+---
+
+<details class="filter">
+  <summary>
+    <span>Filter</span>
+    {current && (
+      <span class="name" data-kind={current.kind}>
+        {current.data.title}
+      </span>
+    )}
+  </summary>
+  <div class="sheet">
+    {current && (
+      <p>
+        <a href="/">Show all plays</a>
+      </p>
+    )}
+    {groups.map(({ kind, parts }) => (
+      <section data-kind={kind}>
+        <h2>{KIND_LABEL[kind]}</h2>
+        <div class="tags">
+          {parts.map((part) => (
+            <Chip
+              part={part}
+              current={part.kind === current?.kind && part.slug === current?.slug}
+            />
+          ))}
+        </div>
+      </section>
+    ))}
+  </div>
+</details>
+
+<style>
+  .filter {
+    margin-top: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+  summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-3);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+  summary .name {
+    font-size: 1.125rem;
+    color: var(--kind);
+  }
+  .sheet {
+    padding: 0 var(--space-3) var(--space-3);
+  }
+  .sheet p {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm);
+  }
+  h2 {
+    margin: var(--space-3) 0 var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--kind);
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+</style>

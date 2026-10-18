@@ -1,32 +1,50 @@
 ---
-// A part as a link to the page of every play that shares it.
+// A part as a tag: a link to every play that shares it, marked with its kind's color.
 import type { Part } from "../lib/catalog.ts";
 import { partHref } from "../lib/hrefs.ts";
+import { KIND_LABEL } from "../lib/labels.ts";
 
 interface Props {
   part: Part;
+  /** The tag the page is filtered by, drawn filled. */
+  current?: boolean;
 }
 
-const { part } = Astro.props;
+const { part, current = false } = Astro.props;
 ---
 
-<a class="chip" data-kind={part.kind} href={partHref(part)}>
+<a
+  class:list={["chip", "name", { current }]}
+  data-kind={part.kind}
+  href={partHref(part)}
+  aria-current={current ? "page" : undefined}
+  aria-label={`${KIND_LABEL[part.kind]}: ${part.data.title}`}
+>
   {part.data.title}
 </a>
 
 <style>
   .chip {
-    display: inline-block;
-    padding: 0 var(--space-2);
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    padding: 0 0.875rem 0 0.625rem;
     border: 1px solid var(--color-border);
-    border-radius: 999px;
-    font-size: var(--text-sm);
-    color: var(--color-fg);
+    border-left: 4px solid var(--kind);
+    border-radius: 6px;
+    box-sizing: border-box;
+    background: var(--color-bg);
+    font-size: 1.125rem;
+    line-height: 1;
     text-decoration: none;
     white-space: nowrap;
   }
-  .chip:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
+  .chip:active {
+    background: var(--color-surface);
+  }
+  .current {
+    border-color: var(--kind);
+    background: var(--kind);
+    color: var(--color-bg);
   }
 </style>
