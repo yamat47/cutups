@@ -12,16 +12,16 @@
     "ci": "npm run check && npm test && npm run validate && npm run build"
   },
   "dependencies": {
-    "astro": "7.4.0"
+    "astro": "7.4.5"
   },
   "devDependencies": {
-    "@astrojs/check": "0.9.10",
+    "@astrojs/check": "0.9.12",
     "@astrojs/compiler-rs": "0.5.2",
     "@types/node": "22.20.5",
-    "oxfmt": "0.73.0",
-    "oxlint": "1.88.0",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
     "typescript": "6.0.3",
-    "vitest": "5.0.5",
+    "vitest": "5.1.0",
     "yaml": "2.9.1"
   },
   "engines": {
