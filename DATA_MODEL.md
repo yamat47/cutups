@@ -123,6 +123,7 @@ A play page shows its parts as chips. A chip leads to the list of plays that sha
 | offensive_guru  | the caption (truncated on screen) | `Team Formation ➡️ Concept`                                                                                       |
 | coachcarsonhart | the heading above the diagram     | `Season Team - Concept`, or a sentence (`Miami running Mesh on 3rd Down out of Bunch`); some posts name no play |
 | greaseboardfb   | the heading above the diagram     | `#Number Team` + `Concept` (`#036 UTAH` / `QB POWER RPO`); a note on the diagram names the read                 |
+| pacenspace2     | a tweet of its own above the film | `Season Team` + `Formation — Concept` (`2026 SMU` / `Quads — PAP Verts`); the film carries no diagram          |
 
 For authors who name the play in the caption, the caption text is handed over with the video. When the caption was cut off, the inferred part of `title` is marked in a comment.
 
