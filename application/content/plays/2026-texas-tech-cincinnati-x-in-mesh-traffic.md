@@ -17,7 +17,7 @@ game:
 
 components:
   motion: in # "X-In": X's zigzag toward the formation
-  pass: mesh # "Traffic" has no part; the two shallow crossers on the diagram are the mesh
+  pass: mesh-traffic
 
 video:
   url: https://www.instagram.com/reel/DfFPoSJCVu7/
